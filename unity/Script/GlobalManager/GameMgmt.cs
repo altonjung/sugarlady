@@ -6,6 +6,9 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
+using InventoryNamespace;
+using ItemNamespace;
+
 public class GameMgmt : MonoBehaviour
 {
     private static GameMgmt instance;
@@ -43,29 +46,49 @@ public class GameMgmt : MonoBehaviour
 
     void makeInventory()
     {
-        string filePath = Path.Combine(Application.persistentDataPath, "inventory.json");
-        if (!File.Exists(filePath)) { 
+        string _filePath = Path.Combine(Application.persistentDataPath, "inventory.json");
+
+        if (!File.Exists(_filePath))
+        {
             TextAsset jsonFile = Resources.Load<TextAsset>("Mgmt/initInventory");
-        
+
             if (jsonFile != null)
-            { 
-                File.WriteAllText(filePath, jsonFile.text);
+            {
+                File.WriteAllText(_filePath, jsonFile.text);
                 Debug.Log($"init inventory");
-            }            
+            }
+
+            // 파일 읽기
+            _filePath = Path.Combine(Application.persistentDataPath, "inventory.json");
         }
+
+        string _json = File.ReadAllText(_filePath);
+        InventoryMap _data = JsonUtility.FromJson<InventoryMap>(_json);
+
+        InventoryMgmt.Instance.SetInventoryMap(_data);
     }
 
-    void makeItems() { 
-        string filePath = Path.Combine(Application.persistentDataPath, "items.json");
-        if (!File.Exists(filePath)) { 
+    void makeItems()
+    {
+        string _filePath = Path.Combine(Application.persistentDataPath, "items.json");
+        if (!File.Exists(_filePath))
+        {
             TextAsset jsonFile = Resources.Load<TextAsset>("Mgmt/initItems");
-        
+
             if (jsonFile != null)
-            {      
-                File.WriteAllText(filePath, jsonFile.text);
-                Debug.Log($"init items");                
-            }            
+            {
+                File.WriteAllText(_filePath, jsonFile.text);
+                Debug.Log($"init items");
+            }
+
+            // 파일 읽기
+            _filePath = Path.Combine(Application.persistentDataPath, "inventory.json");
         }
+
+        string _json = File.ReadAllText(_filePath);
+        ItemMap _data = JsonUtility.FromJson<ItemMap>(_json);
+
+        ItemMgmt.Instance.SetItemMap(_data);
     }
 
     public int getCurTime()

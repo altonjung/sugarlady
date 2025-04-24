@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Video;
 using InventoryNamespace;
+using ItemNamespace;
 
 public class ObjectCollectController : _ObjectController
 {
@@ -18,8 +19,9 @@ public class ObjectCollectController : _ObjectController
                 _audioSource.Play();
             }
 
-            InventoryMgmt.Instance.putIntoInventory(title, amount);
+            if(InventoryMgmt.Instance.saveInventory(title, amount)) {
+                ItemMgmt.Instance.SetItem(place, title, amount);
+            }
         }
     }
-
 }

@@ -4,9 +4,11 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Video;
+using ItemNamespace;
 
 public abstract class _ObjectController : MonoBehaviour
 {
+    public string place;
     public string title;
     public string type;
     public string action;
@@ -30,6 +32,10 @@ public abstract class _ObjectController : MonoBehaviour
     // {
     //     return ItemMark;
     // }
+
+    public string GetItemInfo() {
+        return ItemMgmt.Instance.GetItemInfo(place, title);
+    }
 
     public void ShowItemMark()
     {
