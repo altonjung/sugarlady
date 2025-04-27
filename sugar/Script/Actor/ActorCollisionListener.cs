@@ -13,7 +13,6 @@ public class ActorCollisionListener : MonoBehaviour
 
     void OnTriggerEnter(Collider _a_other)
     {
-        // Debug.Log($" {_a_other.name}");
         if (_script != null)
         {
             if (_a_other.name == "Collider_light")

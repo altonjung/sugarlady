@@ -9,11 +9,6 @@ using UnityEngine.Video;
 
 public class ActorMotionController : MonoBehaviour
 {
-    // public GameObject spriteObject; // cameraTarget 역할도 동시에 수행됨
-
-    // public int textureWidth = 1080;
-    // public int textureHeight = 1920;
-
     public VideoPlayer videoPlayerWalk_down;
     public VideoPlayer videoPlayerWalk_up;
     public VideoPlayer videoPlayerWalk_left;
@@ -32,9 +27,12 @@ public class ActorMotionController : MonoBehaviour
     public VideoPlayer[] videoPlayerIdle_down_right;
     public VideoPlayer[] videoPlayerIdle_up_right;
 
+    // 그림자 관리
+    public GameObject shadowObject;
+
     public float speed = 2.0f;
 
-    public int idleLoopPlayIdx = 5;
+    public int idleLoopStartIdx = 5; // 동영상내 idle 시작 index
 
     float _lastInputTime;
 
@@ -54,13 +52,9 @@ public class ActorMotionController : MonoBehaviour
     List<VideoPlayer> _videos = new List<VideoPlayer>();
     List<GameObject> _prevRayCastObjs = new List<GameObject>();
     List<GameObject> _curRayCastObjs = new List<GameObject>();
-    // List<RenderTexture> textures = new List<RenderTexture>();
+  
 
-    // 그림자 관리
-    public GameObject shadowObject;
-
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-
+  
     void init()
     {
         _spriteRenderer = GetComponent<SpriteRenderer>();
@@ -163,8 +157,7 @@ public class ActorMotionController : MonoBehaviour
     public void SetActorPosition(Vector3 _a_position)
     {
         _a_position.y = -0.0f;
-        this.transform.position = _a_position; // 현재 gameobject 대상 transform 변경
-        // spriteObject.transform.position = Vector3.zero;
+        this.transform.position = _a_position; 
 
         Debug.Log($" 수정된 sprite transform {transform.position}");
     }
@@ -488,44 +481,6 @@ public class ActorMotionController : MonoBehaviour
         }
     }
 
-    // bool CheckCloseColliderWall()
-    // {
-    //     Vector3 cast = new Vector3(0.0f, 0.0f, 0.0f);
-    //     if (Input.GetKey(KeyCode.LeftArrow))
-    //     {
-    //         cast = new Vector3(-1.0f, 0.0f, 0.0f); // left (X축)
-    //     }
-    //     else if (Input.GetKey(KeyCode.RightArrow))
-    //     {
-    //         cast = new Vector3(1.0f, 0.0f, 0.0f); // right (X축)
-    //     }
-    //     else if (Input.GetKey(KeyCode.UpArrow))
-    //     {
-    //         cast = new Vector3(0.0f, 0.0f, 1.0f); // forward (z축)
-    //     }
-    //     else if (Input.GetKey(KeyCode.DownArrow))
-    //     {
-    //         cast = new Vector3(0.0f, 0.0f, -1.0f); //  forward   (z축)
-    //     }
-
-    //     Ray ray = new Ray(transform.position, cast); // 앞쪽으로 레이 쏘기
-    //     RaycastHit hit;
-
-    //     Debug.DrawRay(ray.origin, ray.direction * 5.0f, Color.red);
-
-    //     int layerMask = LayerMask.GetMask("Object");
-    //     if (Physics.Raycast(ray, out hit, 5.0f, layerMask))
-    //     {
-    //         // Debug.Log($"Collider: {hit.collider.gameObject.name}, {hit.distance}");
-    //         if (hit.collider.gameObject.name == "Collider_wall" && hit.distance < 0.93)
-    //         {
-    //             return true;
-    //         }
-    //     }
-
-    //     return false;
-    // }
-    
 
     void ChangePosition(float _a_horizontal, float _a_vertical)
     {
@@ -554,6 +509,7 @@ public class ActorMotionController : MonoBehaviour
         }
     }
 
+    // 동영상 미리 로딩
     void PrepareNextClip(VideoPlayer _a_vp)
     {
         if (_a_vp != null)
@@ -564,7 +520,6 @@ public class ActorMotionController : MonoBehaviour
     }
 
     // Idle 모션 처리
-    // idle 은 두단계 movie로 이뤄져, loop 처리 이후  두번째 단계만 화면 노출 필요
     void OnVideoEnd(VideoPlayer _a_vp)
     {
         if (_idle)
@@ -575,11 +530,11 @@ public class ActorMotionController : MonoBehaviour
 
     IEnumerator PlayIdleFrames(VideoPlayer _a_vp)
     {
-        _a_vp.Pause(); // 일시 정지
-        _a_vp.frame = idleLoopPlayIdx;
+        _a_vp.Pause();
+        _a_vp.frame = idleLoopStartIdx;
 
         // 프레임 이동이 완료될 때까지 대기
-        while (_a_vp.frame != idleLoopPlayIdx)
+        while (_a_vp.frame != idleLoopStartIdx)
         {
             yield return null;
         }
@@ -597,16 +552,5 @@ public class ActorMotionController : MonoBehaviour
         }
 
         _videos.Clear();
-
-        // foreach (RenderTexture __renderTexture in textures)
-        // {
-        //     if (__renderTexture != null)
-        //     {
-        //         __renderTexture.Release();
-        //         Destroy(__renderTexture);
-        //     }
-        // }
-
-        // textures.Clear();
     }
 }
