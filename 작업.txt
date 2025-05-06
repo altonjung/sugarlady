@@ -11,6 +11,8 @@ python C:\temp\Rename.py   sort   0
 python C:\temp\Rename.py   num   0
 python C:\temp\Rename.py   gen   6
 
+ffmpeg -framerate 40 -f image2 -i %d.png  -c:v libx264 -pix_fmt yuv420p -metadata:s:v:0 alpha_mode=1 -crf 4 -b:v 30M  output.mp4
+
 D:\util\ffmpeg\bin\ffmpeg -framerate 40 -f image2 -i %d.png  -c:v libvpx   -pix_fmt yuva420p -metadata:s:v:0 alpha_mode=1 -auto-alt-ref 0 -crf 4  -b:v 30M  -vf "crop=1920:1080:0:0,transpose=1" output.webm
 
 

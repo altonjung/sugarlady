@@ -21,28 +21,21 @@ public abstract class _ObjectController : MonoBehaviour
 
     void Start()
     {
-        _audioSource = GetComponent<AudioSource>();
-        // ObjectPositionMark _script = ShowItemObject.GetComponent<ObjectPositionMark>();
-        // _script.SetTargetActionObject(this.gameObject);        
+        _audioSource = GetComponent<AudioSource>();   
     }
 
     public abstract void DoAction(GameObject _a_targetActor);
-
-    // public GameObject GetTargetMark()
-    // {
-    //     return ItemMark;
-    // }
 
     public string GetItemInfo() {
         return ItemMgmt.Instance.GetItemInfo(place, title);
     }
 
-    public void ShowItemMark()
+    public void ShowMark()
     {
         ItemMark.SetActive(true);
     }
 
-    public void HideItemMark()
+    public void HideMark()
     {
         ItemMark.SetActive(false);
     }        

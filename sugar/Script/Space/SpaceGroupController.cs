@@ -10,7 +10,6 @@ public class SpaceGroupController : MonoBehaviour
     public GameObject nextPlace;
 
     void Start(){
-        StartCoroutine(WaitCoroutine());
         moveNext();
     }
 
@@ -18,10 +17,5 @@ public class SpaceGroupController : MonoBehaviour
         if (nextPlace != null) {            
             nextPlace.SetActive(true);
         }
-    }
-
-    IEnumerator WaitCoroutine()
-    {    
-        yield return new WaitForSeconds(0.5f); // 0.5초 대기     
     }
 }

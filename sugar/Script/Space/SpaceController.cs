@@ -8,22 +8,20 @@ using UnityEngine.Video;
 
 public class SpaceController : MonoBehaviour
 {    
-    public float waitForNextClip = 0.0f;
-    
-    public GameObject prefabRoot;    
+    public GameObject prefabRoot;
+
     public GameObject playerPrefab;
     public GameObject playerPosMark;
 
     public GameObject[] npcPrefabs;
     public GameObject[] npcPosMarks;
 
-    // GameObject curPlacePosMark;
-    GameObject player;
+    public float waitForStart = 0.0f;
 
     SpriteRenderer spriteRenderer;
 
-    List<GameObject> npcActors = new List<GameObject>();
     List<GameObject> playerActors = new List<GameObject>();
+    List<GameObject> npcActors = new List<GameObject>();
 
     IEnumerator Start()
     {
@@ -35,7 +33,7 @@ public class SpaceController : MonoBehaviour
             newColor.a = 0f;
             spriteRenderer.color = newColor;
 
-            yield return StartCoroutine(FadeIn(waitForNextClip));
+            yield return StartCoroutine(FadeIn(waitForStart));
         }
     }
 
@@ -121,27 +119,20 @@ public class SpaceController : MonoBehaviour
         playerPosMark = posMark;        
     }
 
-    public void moveNext(GameObject curPlace, GameObject nextPlace, GameObject nextPlacePosMark)
-    {
-        // 현재 자원 모두 cleanup 
-        if (player != null) {
-            player.SetActive(false);
+    // 현재 공간에서 타 공간으로 이동
+    // public void moveToPlace(GameObject targetPlace, GameObject placePosMark)
+    // {
+    //     gameObject.SetActive(false);
+        
+    //     if (targetPlace != null) {                                             
+    //         targetPlace.SetActive(true);
 
-            // player transform 위치 초기화
-            player.transform.position = Vector3.zero;
-        }
-
-        if (curPlace != null)
-            curPlace.SetActive(false);
-
-        if (nextPlace != null) {                                             
-            if (nextPlacePosMark != null) {
-                SpaceController script = nextPlace.GetComponent<SpaceController>();
-                script.SetPlayerPosMark(nextPlacePosMark);
-            } else {
-                Debug.Log($"nextPlacePosMark not found");
-            }
-            nextPlace.SetActive(true);
-        }
-    }
+    //         if (placePosMark != null) {
+    //             SpaceController script = targetPlace.GetComponent<SpaceController>();
+    //             script.SetPlayerPosMark(placePosMark);
+    //         } else {
+    //             Debug.Log($"placePosMark not found");
+    //         }
+    //     }
+    // }
 }

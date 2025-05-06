@@ -42,9 +42,13 @@ public class ActorMotionController : MonoBehaviour
 
     bool _isRestrictMove;
 
-    bool[] _raystatusmap = new bool[2];  // 0: wall collision
+    bool[] _rayStatusMap = new bool[2];  // 0: wall collision
 
-    bool[] _keymap = new bool[4];
+    bool[] _keyMap = new bool[4];
+
+    int   _preparedVideoCnt;
+
+    string _videoUrl = "";
 
     VideoPlayer _curVideoPlayer;
     SpriteRenderer _spriteRenderer;
@@ -57,83 +61,96 @@ public class ActorMotionController : MonoBehaviour
   
     void init()
     {
-        _spriteRenderer = GetComponent<SpriteRenderer>();
-        _videos.Add(videoPlayerWalk_down);
-        _videos.Add(videoPlayerWalk_up);
-        _videos.Add(videoPlayerWalk_left);
-        _videos.Add(videoPlayerWalk_down_left);
-        _videos.Add(videoPlayerWalk_up_left);
-        _videos.Add(videoPlayerWalk_right);
-        _videos.Add(videoPlayerWalk_down_right);
-        _videos.Add(videoPlayerWalk_up_right);
+        if (_videos.Count == 0) {
+            _preparedVideoCnt = 0;
 
-        foreach (VideoPlayer videoPlayer in videoPlayerIdle_down)
-        {
-            _videos.Add(videoPlayer);
+            _spriteRenderer = GetComponent<SpriteRenderer>();
+            _videos.Add(videoPlayerWalk_down);
+            _videos.Add(videoPlayerWalk_up);
+            _videos.Add(videoPlayerWalk_left);
+            _videos.Add(videoPlayerWalk_down_left);
+            _videos.Add(videoPlayerWalk_up_left);
+            _videos.Add(videoPlayerWalk_right);
+            _videos.Add(videoPlayerWalk_down_right);
+            _videos.Add(videoPlayerWalk_up_right);
+
+            foreach (VideoPlayer videoPlayer in videoPlayerIdle_down)
+            {
+                _videos.Add(videoPlayer);
+            }
+
+            foreach (VideoPlayer videoPlayer in videoPlayerIdle_up)
+            {
+                _videos.Add(videoPlayer);
+            }
+
+            foreach (VideoPlayer videoPlayer in videoPlayerIdle_left)
+            {
+                _videos.Add(videoPlayer);
+            }
+
+            foreach (VideoPlayer videoPlayer in videoPlayerIdle_down_left)
+            {
+                _videos.Add(videoPlayer);
+            }
+
+            foreach (VideoPlayer videoPlayer in videoPlayerIdle_up_left)
+            {
+                _videos.Add(videoPlayer);
+            }
+
+            foreach (VideoPlayer videoPlayer in videoPlayerIdle_right)
+            {
+                _videos.Add(videoPlayer);
+            }
+
+            foreach (VideoPlayer videoPlayer in videoPlayerIdle_down_right)
+            {
+                _videos.Add(videoPlayer);
+            }
+
+            foreach (VideoPlayer videoPlayer in videoPlayerIdle_up_right)
+            {
+                _videos.Add(videoPlayer);
+            }
+
+            foreach (VideoPlayer videoPlayer in _videos)
+            {
+                videoPlayer.prepareCompleted += OnPrepared;
+                videoPlayer.loopPointReached += OnVideoEnd;
+                PrepareNextClip(videoPlayer);
+            }
+
+            StartCoroutine(WaitPrepareCompleted());
+        
+            // virtual camemra 찾기
+            GameObject _cameraObject = GameObject.FindWithTag("VirtualCamera");
+            if (_cameraObject != null)
+            {
+                CinemachineCamera virtualCamera = _cameraObject.GetComponent<CinemachineCamera>();
+                SetTrackingTarget(virtualCamera);
+            }
+            else
+            {
+                Debug.Log("there is no virtualCamera");
+            }
         }
 
-        foreach (VideoPlayer videoPlayer in videoPlayerIdle_up)
-        {
-            _videos.Add(videoPlayer);
-        }
+        _isShow = true;
+        _idle = true;
+        _isRestrictMove = false;
+        _lastInputTime = Time.time;
 
-        foreach (VideoPlayer videoPlayer in videoPlayerIdle_left)
-        {
-            _videos.Add(videoPlayer);
-        }
-
-        foreach (VideoPlayer videoPlayer in videoPlayerIdle_down_left)
-        {
-            _videos.Add(videoPlayer);
-        }
-
-        foreach (VideoPlayer videoPlayer in videoPlayerIdle_up_left)
-        {
-            _videos.Add(videoPlayer);
-        }
-
-        foreach (VideoPlayer videoPlayer in videoPlayerIdle_right)
-        {
-            _videos.Add(videoPlayer);
-        }
-
-        foreach (VideoPlayer videoPlayer in videoPlayerIdle_down_right)
-        {
-            _videos.Add(videoPlayer);
-        }
-
-        foreach (VideoPlayer videoPlayer in videoPlayerIdle_up_right)
-        {
-            _videos.Add(videoPlayer);
-        }
-
-        foreach (VideoPlayer videoPlayer in _videos)
-        {
-            videoPlayer.loopPointReached += OnVideoEnd;
-            PrepareNextClip(videoPlayer);
-        }
+        Array.Fill(_rayStatusMap, false);
+        Array.Fill(_keyMap, false);
+            
+        _keyMap[3] = true;
+        playMoveAnimation();
     }
 
     void OnEnable()
     {
         init();
-
-        // virtual camemra 찾기
-        GameObject _cameraObject = GameObject.FindWithTag("VirtualCamera");
-        if (_cameraObject != null)
-        {
-            CinemachineCamera virtualCamera = _cameraObject.GetComponent<CinemachineCamera>();
-            SetTrackingTarget(virtualCamera);
-        }
-        else
-        {
-            Debug.Log("there is no virtualCamera");
-        }
-        Array.Fill(_raystatusmap, false);
-        Array.Fill(_keymap, false);
-        _idle = true;
-        _keymap[3] = true;
-        playMoveAnimation();
     }
 
     void OnDisable()
@@ -144,14 +161,6 @@ public class ActorMotionController : MonoBehaviour
     void Start()
     {
         init();
-
-        _isShow = true;
-        _idle = true;
-        _isRestrictMove = false;
-        _lastInputTime = Time.time;
-
-        _keymap[3] = true;
-        playMoveAnimation();
     }
 
     public void SetActorPosition(Vector3 _a_position)
@@ -164,11 +173,11 @@ public class ActorMotionController : MonoBehaviour
 
     public string GetActorDirection()
     {
-        if (_keymap[0])
+        if (_keyMap[0])
             return "left";
-        else if (_keymap[1])
+        else if (_keyMap[1])
             return "right";
-        else if (_keymap[2])
+        else if (_keyMap[2])
             return "up";
         else
             return "down";
@@ -177,13 +186,13 @@ public class ActorMotionController : MonoBehaviour
     public void SetActorDirection(string _a_direction)
     {
         if (_a_direction == "left")
-            _keymap[0] = true;
+            _keyMap[0] = true;
         else if (_a_direction == "right")
-            _keymap[1] = true;
+            _keyMap[1] = true;
         else if (_a_direction == "up")
-            _keymap[2] = true;
+            _keyMap[2] = true;
         else
-            _keymap[3] = true;
+            _keyMap[3] = true;
     }
 
     public void RestrictAllMove()
@@ -220,33 +229,33 @@ public class ActorMotionController : MonoBehaviour
         if (Input.anyKey)
         {
             _idle = false;
-            Array.Fill(_keymap, false);
+            Array.Fill(_keyMap, false);
 
             if (Input.GetKey(KeyCode.LeftArrow))
             {
-                _keymap[0] = true;
+                _keyMap[0] = true;
             }
 
             if (Input.GetKey(KeyCode.RightArrow))
             {
-                _keymap[1] = true;
+                _keyMap[1] = true;
             }
 
             if (Input.GetKey(KeyCode.UpArrow))
             {
-                _keymap[2] = true;
+                _keyMap[2] = true;
             }
 
             if (Input.GetKey(KeyCode.DownArrow))
             {
-                _keymap[3] = true;
+                _keyMap[3] = true;
             }
 
-            if (_keymap[0] || _keymap[1] || _keymap[2] || _keymap[3])
+            if (_keyMap[0] || _keyMap[1] || _keyMap[2] || _keyMap[3])
             {
                 RayCast();
 
-                if (_raystatusmap[0]) // wall collision is true
+                if (_rayStatusMap[0]) // wall collision is true
                 {
                     _idle = true;
                 }
@@ -279,11 +288,11 @@ public class ActorMotionController : MonoBehaviour
 
     void playMoveAnimation()
     {
-        VideoPlayer _targetVideo;
-        bool isLeft = _keymap[0]; // left
-        bool isRight = _keymap[1]; // right
-        bool isUp = _keymap[2]; // up
-        bool isDown = _keymap[3]; // down
+        VideoPlayer _targetVideo = null;
+        bool isLeft = _keyMap[0]; // left
+        bool isRight = _keyMap[1]; // right
+        bool isUp = _keyMap[2]; // up
+        bool isDown = _keyMap[3]; // down
 
         if (!_idle)
         {
@@ -324,10 +333,7 @@ public class ActorMotionController : MonoBehaviour
             else if (isRight)
             {
                 _targetVideo = videoPlayerWalk_right;
-            }
-            else
-            {
-                return;
+
             }
         }
         else
@@ -371,47 +377,39 @@ public class ActorMotionController : MonoBehaviour
             {
                 _targetVideo = videoPlayerIdle_right[_idx];
             }
-            else
-            {
-                return;
-            }
         }
 
-        if (_curVideoPlayer == _targetVideo)
-            return;
-
-        if (_curVideoPlayer == null)
+        if (_curVideoPlayer != _targetVideo)
         {
-            UpdateRenderTexture(null, _targetVideo);
-        }
-        else
-        {
-            UpdateRenderTexture(_curVideoPlayer, _targetVideo);
+            UpdateMaterialOverride(_curVideoPlayer, _targetVideo);
         }
     }
 
-    void UpdateRenderTexture(VideoPlayer _a_prevVideoPlayer, VideoPlayer _a_curVideoPlayer)
+    void UpdateMaterialOverride(VideoPlayer _a_curVideoPlayer, VideoPlayer _a_nextVideoPlayer)
     {
-        if (_a_prevVideoPlayer != null)
-        {
-            _a_prevVideoPlayer.Pause();
-            _a_prevVideoPlayer.frame = 0;
-            _a_prevVideoPlayer.targetMaterialRenderer = null;
-        }
 
         if (_a_curVideoPlayer != null)
         {
-            _a_curVideoPlayer.Play();
+            _a_curVideoPlayer.Pause();
             _a_curVideoPlayer.frame = 0;
-            _a_curVideoPlayer.targetMaterialRenderer = _spriteRenderer;
-            _curVideoPlayer = _a_curVideoPlayer;        
+            _a_curVideoPlayer.targetMaterialRenderer = null;
+        }
+
+
+        if (_a_nextVideoPlayer != null)
+        {
+            _spriteRenderer.material.SetTexture("_MainTex", null);
+            _spriteRenderer.material.SetTexture("_MainTex", _a_nextVideoPlayer.targetTexture);
+            _a_nextVideoPlayer.targetMaterialRenderer = _spriteRenderer;
+            _a_nextVideoPlayer.Play();
+            _curVideoPlayer = _a_nextVideoPlayer; 
         }
     }
 
     // raycast 충돌 처리
     void RayCast()
     {   
-        Array.Fill(_raystatusmap, false);
+        Array.Fill(_rayStatusMap, false);
         Vector3 cast = new Vector3(0.0f, 0.0f, 0.0f);
         if (Input.GetKey(KeyCode.LeftArrow))
         {
@@ -454,7 +452,7 @@ public class ActorMotionController : MonoBehaviour
         foreach (GameObject _object in _active_list) {
             if (_object != null) {
                 _ObjectController _script = _object.GetComponent<_ObjectController>();
-                _script.ShowItemMark();
+                _script.ShowMark();
             }
         }
 
@@ -462,7 +460,7 @@ public class ActorMotionController : MonoBehaviour
         foreach (GameObject _object in _inactive_list) {
             if (_object != null) {
                 _ObjectController _script = _object.GetComponent<_ObjectController>();
-                _script.HideItemMark();
+                _script.HideMark();
             }
         }
 
@@ -476,11 +474,10 @@ public class ActorMotionController : MonoBehaviour
             // Debug.Log($"Collider: {hit.collider.gameObject.name}, {hit.distance}");
             if (_hit.collider.gameObject.tag == "Wall" && _hit.distance < 0.93)
             {
-                _raystatusmap[0] = true;
+                _rayStatusMap[0] = true;
             }
         }
     }
-
 
     void ChangePosition(float _a_horizontal, float _a_vertical)
     {
@@ -504,8 +501,6 @@ public class ActorMotionController : MonoBehaviour
             _a_virtualCamera.LookAt = transform;
 
             Debug.Log($"CinemachineCamera Follow/LookAt이 '{transform.name}'으로 설정되었습니다.");
-
-            // Debug.Log($" 수정된 sprite transform {transform.position}");
         }
     }
 
@@ -515,16 +510,30 @@ public class ActorMotionController : MonoBehaviour
         if (_a_vp != null)
         {
             _a_vp.Prepare();
-            _a_vp.Pause();
         }
     }
 
     // Idle 모션 처리
+    void OnPrepared(VideoPlayer _a_vp)
+    {
+        _a_vp.Pause();
+        _preparedVideoCnt++;
+    }
+
     void OnVideoEnd(VideoPlayer _a_vp)
     {
         if (_idle)
         {
             StartCoroutine(PlayIdleFrames(_a_vp));
+        }
+    }
+
+    IEnumerator WaitPrepareCompleted()
+    {
+        // video prepared 완료될 때까지 대기
+        while (_videos.Count != _preparedVideoCnt)
+        {
+            yield return null;
         }
     }
 
@@ -547,6 +556,7 @@ public class ActorMotionController : MonoBehaviour
         foreach (VideoPlayer __videoPlayer in _videos)
         {
             __videoPlayer.loopPointReached -= OnVideoEnd;
+            __videoPlayer.prepareCompleted -= OnPrepared;
             if (__videoPlayer != null)
                 Destroy(__videoPlayer);
         }

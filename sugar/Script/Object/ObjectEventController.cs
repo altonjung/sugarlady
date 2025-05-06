@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Video;
 
-public class ObjectSceneController : _ObjectController
+public class ObjectEventController : _ObjectController
 {
     public GameObject sceneActorObj;
 
