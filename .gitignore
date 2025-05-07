@@ -1,0 +1,10 @@
+# 모든 하위 항목 무시
+hs2/HSPlugins-main/*
+
+# 예외: Timeline.Core 폴더 포함
+!hs2/HSPlugins-main/Timeline.Core/
+!hs2/HSPlugins-main/Timeline.Core/**
+
+# 예외: sugar 폴더 포함
+!/sugar/
+!/sugar/**
