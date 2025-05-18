@@ -21,6 +21,8 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Button = UnityEngine.UI.Button;
 using Type = System.Type;
+using System.Text.Json
+
 #if IPA
 using Harmony;
 using IllusionPlugin;
@@ -158,13 +160,13 @@ namespace Timeline
         public class TransactionData
         {        
             public ObjectCtrlInfo ctrlInfo;
-            public StringBuilder sb;
+            public string data;
 
             // 생성자
-            public TransactionData(ObjectCtrlInfo _ctrlInfo, StringBuilder _sb)
+            public TransactionData(ObjectCtrlInfo _ctrlInfo, string _data)
             {
                 ctrlInfo = _ctrlInfo;
-                sb = new StringBuilder(_sb.ToString());
+                data = _data;
             }
         }
         
@@ -360,7 +362,6 @@ namespace Timeline
         #endregion
 
 #if FIXED_093        
-        // added by Alton for autogen v0.93
         private const string AUTOGEN_INTERPOLABLE_FILE = "_interpolable_"; 
         private bool isAutoGenerating = false;
         private static bool shouldStopAutogen = false;       
@@ -469,7 +470,7 @@ namespace Timeline
                 return;
 
 #if FIXED_093
-           // added by Alton for autogen v0.93
+            // 생성중인 autogen 종료 처리리
             if (shouldStopAutogen) {
                 Pause();
                 shouldStopAutogen = false;
@@ -490,7 +491,7 @@ namespace Timeline
                 }   
             }
 
-            // added by Alton for autogen v0.93     
+            // workspace에서 활성화된 object를 _selectedOCI 로 할당
             ObjectCtrlInfo _currentObjectCtrlInfo = GetObjectCtrlInfo();
             if (_selectedOCI != _currentObjectCtrlInfo || _currentObjectCtrlInfo == null)
             {
@@ -560,14 +561,13 @@ namespace Timeline
 
             if (_ui.gameObject.activeSelf)
             {
-#if FIXED_094
-               if (ConfigKeyframeCopyShortcut.Value.IsDown())
+                if (ConfigKeyframeCopyShortcut.Value.IsDown())
                     CopyKeyframes();
                 else if (ConfigKeyframeCutShortcut.Value.IsDown())
                     CutKeyframes();
                 else if (ConfigKeyframePasteShortcut.Value.IsDown())
                     PasteKeyframes();
-               // added by Alton for autogen v0.93
+#if FIXED_093
                 else if (ConfigKeyframeSelectAllShortcut.Value.IsDown()) 
                     SelectAllAction();
                 else if (ConfigKeyframeDeleteAllShortcut.Value.IsDown()) 
@@ -576,38 +576,14 @@ namespace Timeline
                     MoveLeftKeyframes();
                 else if (ConfigKeyframeMoveRightShortcut.Value.IsDown())
                     MoveRightKeyframes();                       
-               // added by Alton for autogen v0.94
-                else if (ConfigKeyframeUndoShortcut.Value.IsDown()) 
+#endif
+#if FIXED_094
+                else if (ConfigKeyframeUndoShortcut.Value.IsDown())                 
                     UndoPopupAction(0);
                 else if (ConfigKeyframeRedoShortcut.Value.IsDown()) 
-                    UndoPopupAction(1);                
-                 
-#elif FIXED_093
-                if (ConfigKeyframeCopyShortcut.Value.IsDown())
-                    CopyKeyframes();
-                else if (ConfigKeyframeCutShortcut.Value.IsDown())
-                    CutKeyframes();
-                else if (ConfigKeyframePasteShortcut.Value.IsDown())
-                    PasteKeyframes();
+                    UndoPopupAction(1);                 
+#endif                     
 
-               // added by Alton for autogen v0.93                    
-                else if (ConfigKeyframeSelectAllShortcut.Value.IsDown()) 
-                    SelectAllAction();
-                else if (ConfigKeyframeDeleteAllShortcut.Value.IsDown()) 
-                    DeleteAllAction();   
-                else if (ConfigKeyframeMoveLeftShortcut.Value.IsDown())
-                    MoveLeftKeyframes();
-                else if (ConfigKeyframeMoveRightShortcut.Value.IsDown())
-                    MoveRightKeyframes();                       
-#else            
-
-                if (ConfigKeyframeCopyShortcut.Value.IsDown())
-                    CopyKeyframes();
-                else if (ConfigKeyframeCutShortcut.Value.IsDown())
-                    CutKeyframes();
-                else if (ConfigKeyframePasteShortcut.Value.IsDown())
-                    PasteKeyframes();
-#endif
                 if (_speedInputField.isFocused == false)
                     _speedInputField.text = Time.timeScale.ToString("0.#####");
             }
@@ -3092,7 +3068,6 @@ namespace Timeline
         }
 
 #if FIXED_093
-        // added by Alton for autogen v0.93
         private IEnumerator GenerateAnimationTimeline(float startTime)
         {   
             List<Interpolable> enabledInterpolables = GetAllInterpolables(true).ToList(); 
@@ -3362,8 +3337,7 @@ namespace Timeline
             return null;
         }
 #if FIXED_093  
-        // added by Alton for autogen v0.93
-        // 미리 정의한 interpolable내 keyframe 모두 삭제..
+        // 미리 정의한 keyframe를 제외한 나머지 keyframes 모두 삭제..
         private void DeletePredefinedFrames() {
             List<KeyValuePair<float, Keyframe>> deletedKeyframes = new List<KeyValuePair<float, Keyframe>>();
             foreach (Interpolable interpolable in _selectedInterpolables) {
@@ -3379,7 +3353,7 @@ namespace Timeline
             UpdateKeyframeWindow(false);
         }
 
-        // added by Alton for autogen v0.93
+        // startTime 기준 각 interpolables에 대한 이전 keyframe 정보 획득
         private List<object> GetLastPrevKeyframesFromInterpolables(List<Interpolable> interpolables, float startTime) {
             List<object> valueList = new List<object>(); 
 
@@ -3395,7 +3369,7 @@ namespace Timeline
             return valueList;
         }
 
-        // added by Alton for autogen v0.93
+        // 각 interpolables에 대한 현재 keyframe 정보 획득
         private List<object> GetCurrentKeyframesFromInterpolables(List<Interpolable> interpolables) {
             List<object> valueList = new List<object>(); 
 
@@ -3541,7 +3515,7 @@ namespace Timeline
             xmlWriter.Flush();
             xmlWriter.Close();
 
-            return new TransactionData(_selectedOCI, sb);
+            return new TransactionData(_selectedOCI, sb.ToString());
         } 
 
         public void UndoPushAction() {
@@ -3591,7 +3565,7 @@ namespace Timeline
                 XmlDocument doc = new XmlDocument();
                 try
                 {
-                    doc.LoadXml(transactionData.sb.ToString());
+                    doc.LoadXml(transactionData.data);
                 }
                 catch (Exception ex)
                 {
@@ -3621,8 +3595,7 @@ namespace Timeline
                 UpdateInterpolablesView();
             }
         }
-#endif
-        // added by Alton for autogen v0.93
+#endif        
         private List<KeyValuePair<float, Keyframe>>  AddKeyframes(List<Interpolable> interpolables, float time)
         {
             Keyframe keyframe;
@@ -3852,13 +3825,11 @@ namespace Timeline
                     Logger.LogMessage("File was loaded successfully.");
 
 #if FIXED_093
-                   // added by Alton for autogen v0.93                   
                     _duration = 10.0f;
                     if (_singleFileNameField.text.Contains(AUTOGEN_INTERPOLABLE_FILE)) {                                               
                         _duration = 180.0f;
                     }
 #if FIXED_094                
-                    // added by Alton for autogen v0.94
                     _redoStack.Clear();
                     _undoStack.Clear();
 #endif
@@ -4959,6 +4930,50 @@ namespace Timeline
             }
         }
 
+#if FIXED_094
+        private void WriteInterpolableTreeJson(INode interpolableNode, Utf8JsonWriter writer, List<KeyValuePair<int, ObjectCtrlInfo>> dic, Func<LeafNode<Interpolable>, bool> predicate = null)
+        {
+            switch (interpolableNode.type)
+            {
+                case INodeType.Leaf:
+                    LeafNode<Interpolable> leafNode = (LeafNode<Interpolable>)interpolableNode;
+                    if (predicate == null || predicate(leafNode))
+                    {
+                        WriteInterpolableJson(leafNode.obj, writer, dic);
+                    }
+                    break;
+
+                case INodeType.Group:
+                    GroupNode<InterpolableGroup> group = (GroupNode<InterpolableGroup>)interpolableNode;
+                    bool shouldWriteGroup = true;
+
+                    if (predicate != null)
+                        shouldWriteGroup = _interpolablesTree.Any(group, predicate);
+
+                    if (shouldWriteGroup)
+                    {
+                        writer.WriteStartObject(); // {
+                        writer.WritePropertyName("interpolableGroup"); // "interpolableGroup":
+                        writer.WriteStartObject(); // {
+
+                        writer.WriteString("name", group.obj.name);
+
+                        writer.WritePropertyName("interpolables");
+                        writer.WriteStartArray();
+
+                        foreach (INode child in group.children)
+                        {
+                            WriteInterpolableTreeJson(child, writer, dic, predicate);
+                        }
+
+                        writer.WriteEndArray();
+                        writer.WriteEndObject();
+                        writer.WriteEndObject();
+                    }
+                    break;
+            }
+        }
+#endif 
         private void WriteInterpolableTree(INode interpolableNode, XmlTextWriter writer, List<KeyValuePair<int, ObjectCtrlInfo>> dic, Func<LeafNode<Interpolable>, bool> predicate = null)
         {
             switch (interpolableNode.type)
@@ -4966,7 +4981,7 @@ namespace Timeline
                 case INodeType.Leaf:
                     LeafNode<Interpolable> leafNode = (LeafNode<Interpolable>)interpolableNode;
                     if (predicate == null || predicate(leafNode))
-                        WriteInterpolable(leafNode.obj, writer, dic);
+                        WriteInterpolableXML(leafNode.obj, writer, dic);
                     break;
                 case INodeType.Group:
                     GroupNode<InterpolableGroup> group = (GroupNode<InterpolableGroup>)interpolableNode;
@@ -5077,7 +5092,96 @@ namespace Timeline
             }
         }
 
-        private void WriteInterpolable(Interpolable interpolable, XmlTextWriter writer, List<KeyValuePair<int, ObjectCtrlInfo>> dic)
+
+#if FIXED_094
+        private void WriteInterpolableJson(Interpolable interpolable, Utf8JsonWriter writer, List<KeyValuePair<int, ObjectCtrlInfo>> dic)
+        {
+            if (interpolable.keyframes.Count == 0)
+                return;
+
+            try
+            {
+                int objectIndex = -1;
+                if (interpolable.oci != null)
+                {
+                    objectIndex = dic.FindIndex(e => e.Value == interpolable.oci);
+                    if (objectIndex == -1)
+                        return;
+                }
+
+                writer.WriteStartObject();
+
+                writer.WriteBoolean("enabled", interpolable.enabled);
+                writer.WriteString("owner", interpolable.owner);
+                writer.WriteNumber("objectIndex", objectIndex);
+                writer.WriteString("id", interpolable.id);
+
+                if (interpolable.writeParameterToXml != null && interpolable.parameter is string guidePath)
+                    writer.WriteString("guideObjectPath", guidePath);
+
+                writer.WriteNumber("bgColorR", interpolable.color.r);
+                writer.WriteNumber("bgColorG", interpolable.color.g);
+                writer.WriteNumber("bgColorB", interpolable.color.b);
+                writer.WriteString("alias", interpolable.alias);
+
+                writer.WritePropertyName("keyframes");
+                writer.WriteStartArray();
+
+                foreach (KeyValuePair<float, Keyframe> keyframePair in interpolable.keyframes)
+                {
+                    writer.WriteStartObject(); // keyframe 객체
+                    writer.WriteNumber("time", keyframePair.Key);
+
+                    // 값 처리
+                    var val = keyframePair.Value.value;
+                    if (val is float f)
+                    {
+                        writer.WriteNumber("value", f);
+                    }
+                    else if (val is Vector3 v)
+                    {
+                        writer.WriteNumber("valueX", v.x);
+                        writer.WriteNumber("valueY", v.y);
+                        writer.WriteNumber("valueZ", v.z);
+                    }
+                    else if (val is Quaternion q)
+                    {
+                        writer.WriteNumber("valueX", q.x);
+                        writer.WriteNumber("valueY", q.y);
+                        writer.WriteNumber("valueZ", q.z);
+                        writer.WriteNumber("valueW", q.w);
+                    }
+
+                    // curveKeyframes
+                    writer.WritePropertyName("curveKeyframes");
+                    writer.WriteStartArray();
+
+                    foreach (var curveKey in keyframePair.Value.curve.keys)
+                    {
+                        writer.WriteStartObject();
+                        writer.WriteNumber("time", curveKey.time);
+                        writer.WriteNumber("value", curveKey.value);
+                        writer.WriteNumber("inTangent", curveKey.inTangent);
+                        writer.WriteNumber("outTangent", curveKey.outTangent);
+                        writer.WriteEndObject();
+                    }
+
+                    writer.WriteEndArray(); // curveKeyframes
+                    writer.WriteEndObject(); // keyframe
+                }
+
+                writer.WriteEndArray(); // keyframes
+                writer.WriteEndObject(); // interpolable
+            }
+            catch (Exception e)
+            {
+                Logger.LogError("Couldn't save interpolable to JSON:\n" + interpolable + "\n" + e);
+                return;
+            }
+        }
+#endif        
+
+        private void WriteInterpolableXML(Interpolable interpolable, XmlTextWriter writer, List<KeyValuePair<int, ObjectCtrlInfo>> dic)
         {
             if (interpolable.keyframes.Count == 0)
                 return;
@@ -5342,7 +5446,6 @@ namespace Timeline
             private static void Postfix() => OnGuideClick();
         }
 #if FIXED_093
-        // added by Alton for autogen v0.93
         [HarmonyPatch(typeof(PauseCtrl.FileInfo), "Apply", typeof(OCIChar))]
         private static class PauseCtrl_Apply_Patches
         {
@@ -5356,7 +5459,6 @@ namespace Timeline
             }
         }
 
-        // added by Alton for autogen v0.93
         [HarmonyPatch(typeof(FrameCtrl), nameof(FrameCtrl.Load), typeof(string))]
         private static class FrameCtrl_Load_Patches
         {
