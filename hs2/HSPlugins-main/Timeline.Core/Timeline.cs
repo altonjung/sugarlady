@@ -148,31 +148,23 @@ namespace Timeline
             public Text text;
         }
 
-        private class InterpolableGroup
+        public class InterpolableGroup
         {
             public string name;
             public bool expanded = true;
         }
 #if FIXED_094
-        // added by Alton for autogen v0.94
-        public enum ActionType
-        {
-            ADD,
-            DELETE,
-            MOVE
-        }
-
         [System.Serializable]
         public class TransactionData
-        {
-            public ActionType actionType;
-            public List<KeyValuePair<float, Keyframe>> keyframes;
+        {        
+            public ObjectCtrlInfo ctrlInfo;
+            public StringBuilder sb;
 
             // 생성자
-            public TransactionData(ActionType _actionType, List<KeyValuePair<float, Keyframe>> _keyframes)
+            public TransactionData(ObjectCtrlInfo _ctrlInfo, StringBuilder _sb)
             {
-                actionType = _actionType;
-                keyframes = new List<KeyValuePair<float, Keyframe>>(_keyframes); // 깊은 복사
+                ctrlInfo = _ctrlInfo;
+                sb = new StringBuilder(_sb.ToString());
             }
         }
         
@@ -485,7 +477,8 @@ namespace Timeline
 
                 if (isHS2SceneLoaded) { 
                     isHS2SceneLoaded = false;
-
+                    _undoStack.Clear();
+                    _redoStack.Clear();
                     _ui.gameObject.SetActive(false); // timeline ui
                     return;
                 }
@@ -496,33 +489,16 @@ namespace Timeline
                     return;
                 }   
             }
-#endif
 
-            // added by Alton for autogen v0.97
-            bool _shouldUpdateInterpolableView = false;
+            // added by Alton for autogen v0.93     
             ObjectCtrlInfo _currentObjectCtrlInfo = GetObjectCtrlInfo();
             if (_selectedOCI != _currentObjectCtrlInfo || _currentObjectCtrlInfo == null)
             {
                 _selectedOCI = _currentObjectCtrlInfo;
-                _shouldUpdateInterpolableView = true;
+                UpdateInterpolablesView();
                 UpdateKeyframeWindow(false);
             }
-
-            if (ConfigMainWindowShortcut.Value.IsDown())
-            {
-                ToggleUiVisible();
-            }
-            if (ConfigPlayPauseShortcut.Value.IsDown())
-            {
-                if (_isPlaying)
-                    Pause();
-                else
-                    Play();
-            }
-
-            _totalActiveExpressions = _allExpressions.Count(e => e.enabled && e.gameObject.activeInHierarchy);
-            _currentExpressionIndex = 0;
-
+#else                
             //This bullshit is obligatory because when a node is selected on an object that is not selected in the workspace, the selected object doesn't get switched.
             GuideObject guideObject = _selectedGuideObjects.FirstOrDefault();
             if (_selectedGuideObject != guideObject)
@@ -547,7 +523,22 @@ namespace Timeline
                     UpdateKeyframeWindow(false);
                 }
             }
+#endif
+            if (ConfigMainWindowShortcut.Value.IsDown())
+            {
+                ToggleUiVisible();
+            }
+            if (ConfigPlayPauseShortcut.Value.IsDown())
+            {
+                if (_isPlaying)
+                    Pause();
+                else
+                    Play();
+            }
 
+            _totalActiveExpressions = _allExpressions.Count(e => e.enabled && e.gameObject.activeInHierarchy);
+            _currentExpressionIndex = 0;
+        
             if (_toDelete.Count != 0)
             {
                 try
@@ -941,6 +932,14 @@ namespace Timeline
             return null;
         }
 
+#if FIXED_094
+        private void RemoveInterpolableUndo(Interpolable interpolable)
+        {
+            _interpolables.Remove(interpolable.GetHashCode());
+            _interpolablesTree.RemoveLeaf(interpolable);
+        }
+#endif
+
         private void RemoveInterpolable(Interpolable interpolable)
         {
             _interpolables.Remove(interpolable.GetHashCode());
@@ -949,6 +948,7 @@ namespace Timeline
                 _selectedInterpolables.RemoveAt(selectedIndex);
             _interpolablesTree.RemoveLeaf(interpolable);
             _selectedKeyframes.RemoveAll(elem => elem.Value.parent == interpolable);
+
             UpdateInterpolablesView();
             UpdateKeyframeWindow(false);
         }
@@ -957,6 +957,7 @@ namespace Timeline
         {
             if (interpolables == _selectedInterpolables)
                 interpolables = interpolables.ToArray();
+
             foreach (Interpolable interpolable in interpolables)
             {
                 if (_interpolables.ContainsKey(interpolable.GetHashCode()))
@@ -967,6 +968,9 @@ namespace Timeline
                 if (index != -1)
                     _selectedInterpolables.RemoveAt(index);
                 _selectedKeyframes.RemoveAll(elem => elem.Value.parent == interpolable);
+#if FIXED_094
+                interpolable.keyframes.Clear();
+#endif   
             }
             UpdateInterpolablesView();
             UpdateKeyframeWindow(false);
@@ -2073,8 +2077,12 @@ namespace Timeline
                                                 : "Are you sure you want to delete this Interpolable?";
                                         UIUtility.DisplayConfirmationDialog(result =>
                                         {
-                                            if (result)
+                                            if (result) {
+#if FIXED_094
+                                                UndoPushAction();
+#endif
                                                 RemoveInterpolables(currentlySelectedInterpolables);
+                                            }
                                         }, message);
                                     }
                                 });
@@ -2336,7 +2344,9 @@ namespace Timeline
                                                     if (n.type == INodeType.Leaf)
                                                         interpolables.Add(((LeafNode<Interpolable>)n).obj);
                                                 });
-
+#if FIXED_094
+                                                UndoPushAction();
+#endif
                                                 _interpolablesTree.Remove(display.group);
                                                 RemoveInterpolables(interpolables);
                                             }
@@ -2976,8 +2986,7 @@ namespace Timeline
                     return;
             } while (conflicting);
 #if FIXED_094
-            // added by Alton for autogen v0.94
-            UndoPushAction(ActionType.MOVE, _selectedKeyframes);
+            UndoPushAction();
 #endif
             for (int i = 0; i < _selectedKeyframes.Count; i++)
             {
@@ -3016,12 +3025,11 @@ namespace Timeline
                     if (Input.GetKey(KeyCode.LeftAlt) && _selectedInterpolables.Count != 0)
                     {
 #if FIXED_094                             
+                        UndoPushAction();
                         List<KeyValuePair<float, Keyframe>> generatedKeyPairs = new List<KeyValuePair<float, Keyframe>>();
                         foreach (Interpolable selectedInterpolable in _selectedInterpolables)
                             generatedKeyPairs.Add(AddKeyframe(selectedInterpolable, time));
-
-                        UndoPushAction(ActionType.DELETE, generatedKeyPairs);
-
+                        
                         UpdateGrid();
 #else 
                         foreach (Interpolable selectedInterpolable in _selectedInterpolables)
@@ -3068,11 +3076,10 @@ namespace Timeline
                             if (interpolable != null)
                             {
 #if FIXED_094                                
+                                UndoPushAction();
                                 List<KeyValuePair<float, Keyframe>> generatedKeyPairs = new List<KeyValuePair<float, Keyframe>>();
                                 generatedKeyPairs.Add(AddKeyframe(interpolable, time));
                                 UpdateGrid();
-                                // added by Alton for autogen v0.94
-                                UndoPushAction(ActionType.DELETE, generatedKeyPairs);                   
 #else
                                 AddKeyframe(interpolable, time);
                                 UpdateGrid();
@@ -3098,7 +3105,9 @@ namespace Timeline
                 if (isAutoGenerating) {     
                     isAutoGenerating = false;               
                 } else {                    
-
+#if FIXED_094
+                    UndoPushAction();
+#endif
                     Pause();
 
                     float _keyframe = 0.0f;
@@ -3279,10 +3288,6 @@ namespace Timeline
                         }                                                                 
                     }
                    
-#if FIXED_094
-                    // added by Alton for autogen v0.94
-                    UndoPushAction(ActionType.DELETE, generatedKeyPairs);
-#endif
                     isAutoGenerating = false;
                     CloseKeyframeWindow();            
                     UpdateGrid();                    
@@ -3370,9 +3375,8 @@ namespace Timeline
                     KeyValuePair<float, Keyframe> keyframePair = (KeyValuePair<float, Keyframe>)keyframePairObj;
                     deletedKeyframes.Add(keyframePair);
             }
-            DeleteKeyframes(deletedKeyframes);
+            DeleteKeyframes(deletedKeyframes, true);
             UpdateKeyframeWindow(false);
-            Logger.LogError("Deleted predefined keyframes");
         }
 
         // added by Alton for autogen v0.93
@@ -3487,7 +3491,7 @@ namespace Timeline
             if(_selectedKeyframes.Count > 0) {
                 float _interval = 0.1f;
 #if FIXED_094                              
-                UndoPushAction(ActionType.MOVE, _selectedKeyframes);
+                UndoPushAction();
 #endif        
                 for (int i = 0; i < _selectedKeyframes.Count; i++)
                     {
@@ -3507,7 +3511,7 @@ namespace Timeline
             if(_selectedKeyframes.Count > 0) {
                 float _interval = 0.1f;
 #if FIXED_094  
-                UndoPushAction(ActionType.MOVE, _selectedKeyframes);
+                UndoPushAction();
 #endif
                 for (int i = 0; i < _selectedKeyframes.Count; i++)
                 {
@@ -3524,60 +3528,97 @@ namespace Timeline
 #endif        
 
 #if FIXED_094
-        // added by Alton for autogen v0.94
-        public void UndoPushAction(ActionType actionType, List<KeyValuePair<float, Keyframe>> keyframes) {
-            _undoStack.Push(new TransactionData(actionType, keyframes));
+        public TransactionData MakeAction() {
+            StringBuilder sb = new StringBuilder();
+            StringWriter stringWriter = new StringWriter(sb);
+            XmlTextWriter xmlWriter = new XmlTextWriter(stringWriter);
+
+            List<KeyValuePair<int, ObjectCtrlInfo>> dic = new SortedDictionary<int, ObjectCtrlInfo>(Studio.Studio.Instance.dicObjectCtrl).ToList();
+            xmlWriter.WriteStartElement("root");
+            foreach (INode node in _interpolablesTree.tree)
+                WriteInterpolableTree(node, xmlWriter, dic, leafNode => leafNode.obj.oci == _selectedOCI);
+            xmlWriter.WriteEndElement();
+            xmlWriter.Flush();
+            xmlWriter.Close();
+
+            return new TransactionData(_selectedOCI, sb);
+        } 
+
+        public void UndoPushAction() {
+            if (_undoStack.Count > 0) {
+                TransactionData transactionData = _undoStack.Peek();
+                if (transactionData.ctrlInfo != _selectedOCI) {
+                    _undoStack.Clear();                    
+                }
+            }
+            
             _redoStack.Clear();
+            _undoStack.Push(MakeAction());
         }
 
-        private void UndoPopupAction(int type)   // type 1: undo, type 2: redo
-        {            
-            if (_undoStack.Count > 0) {
-                TransactionData TransactionData = null;
-                if (type == 0)
-                    TransactionData = _undoStack.Pop();
-                else 
-                    TransactionData = _redoStack.Pop();                    
-                       
-                List<KeyValuePair<float, Keyframe>> generatedKeyPairs = new List<KeyValuePair<float, Keyframe>>();                       
-                if (TransactionData.actionType == ActionType.ADD) {
-                    foreach (KeyValuePair<float, Keyframe> pair in TransactionData.keyframes) {
-                        if (pair.Value.parent.keyframes.Count == 0) {
-                            Interpolable interpolable = AddInterpolable(pair.Value.parent);
-                            generatedKeyPairs.Add(AddKeyframe(interpolable, pair.Key));
-                        } else {
-                            generatedKeyPairs.Add(AddKeyframe(pair.Value.parent, pair.Key));
-                        }
-                    }
+        private void UndoPopupAction(int type)   // type 0: undo, type 1: redo
+        {   
+            TransactionData transactionData = null;
 
-                    TransactionData.actionType = ActionType.DELETE;
-                    TransactionData.keyframes = generatedKeyPairs;
-                } else if (TransactionData.actionType == ActionType.DELETE) {
-                    foreach (KeyValuePair<float, Keyframe> pair in TransactionData.keyframes) {
-                        generatedKeyPairs.Add(pair);
-                    }
+            if (_selectedOCI == null)
+                return;
 
-                    DeleteKeyframes(TransactionData.keyframes, true);
-
-                    TransactionData.actionType = ActionType.ADD;
-                    TransactionData.keyframes = generatedKeyPairs;
-                } else {
-                    if (TransactionData.actionType == ActionType.MOVE) {
-                        foreach (KeyValuePair<float, Keyframe> pair in TransactionData.keyframes) {
-                            MoveKeyframe(pair.Value, pair.Key);
-                            generatedKeyPairs.Add(pair);
-                        }
-                    }
-                    TransactionData.actionType = ActionType.MOVE;
-                    TransactionData.keyframes = generatedKeyPairs;
+            if (type == 0) {
+                if (_undoStack.Count > 0) {
+                    transactionData = _undoStack.Pop();
                 }
-                if (type == 0)
-                    _redoStack.Push(TransactionData);
-                else
-                    _undoStack.Push(TransactionData);
+            }
+            else { 
+                if (_redoStack.Count > 0) {
+                    transactionData = _redoStack.Pop();
+                }
+            }
+
+            if (transactionData != null) {
+
+                if (transactionData.ctrlInfo != _selectedOCI) {
+                    _undoStack.Push(transactionData);
+                    return;
+                }
+
+                if (type == 0) {
+                    _redoStack.Push(MakeAction());
+                }
+                else { 
+                    _undoStack.Push(MakeAction());
+                }
+                
+                XmlDocument doc = new XmlDocument();
+                try
+                {
+                    doc.LoadXml(transactionData.sb.ToString());
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("exception " + ex.Message);
+                }
+
+                List<Interpolable> deleteInterpolables = new List<Interpolable>();
+
+                foreach (KeyValuePair<int, Interpolable> pair in _interpolables) {
+                    if(pair.Value.oci == _selectedOCI) {
+                        deleteInterpolables.Add(pair.Value);
+                    }
+                }
+
+                foreach (Interpolable interpolable in deleteInterpolables) {
+                    RemoveInterpolableUndo(interpolable);
+                }
+                
+                _selectedInterpolables.Clear();
+                _selectedKeyframes.Clear();
+
+                List<KeyValuePair<int, ObjectCtrlInfo>> dic = new SortedDictionary<int, ObjectCtrlInfo>(Studio.Studio.Instance.dicObjectCtrl).ToList();
+
+                ReadInterpolableTree(doc.FirstChild, dic, _selectedOCI);
 
                 UpdateKeyframeWindow(false);
-                UpdateGrid();
+                UpdateInterpolablesView();
             }
         }
 #endif
@@ -3818,6 +3859,7 @@ namespace Timeline
                     }
 #if FIXED_094                
                     // added by Alton for autogen v0.94
+                    _redoStack.Clear();
                     _undoStack.Clear();
 #endif
 #endif
@@ -4357,8 +4399,7 @@ namespace Timeline
                         if (result)
                         {
 #if FIXED_094
-                            // added by Alton for autogen v0.94
-                            UndoPushAction(ActionType.ADD, _selectedKeyframes);
+                            UndoPushAction();
 #endif
                             DeleteKeyframes(_selectedKeyframes);
                         }
