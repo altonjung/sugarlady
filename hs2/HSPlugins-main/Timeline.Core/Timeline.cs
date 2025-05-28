@@ -21,7 +21,6 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Button = UnityEngine.UI.Button;
 using Type = System.Type;
-using System.Text.Json
 
 #if IPA
 using Harmony;
@@ -44,8 +43,9 @@ using ExtensibleSaveFormat;
 //  v0.93 
 //    - generate keyframes from animaton
 //  v0.94
-//    - undo -> delete lask generated keyframes from animation 
-//    - keyframe travels
+//    - undo/redo
+//  v0.95
+//    - play lite
 #if FIXED_093
 using System.Diagnostics;
 using UniRx;
@@ -233,6 +233,9 @@ namespace Timeline
         private const int _interpolableMinHeight = 15;
         private int interpolableHeight = _interpolableMaxHeight;
         private const float _curveGridCellSizePercent = 1f / 24f;
+#if FIXED_093
+        private const string AUTOGEN_INTERPOLABLE_FILE = "_interpolable_"; 
+#endif         
         private Canvas _ui;
         private Sprite _linkSprite;
         private Sprite _colorSprite;
@@ -328,20 +331,22 @@ namespace Timeline
         private readonly List<KeyValuePair<float, Keyframe>> _copiedKeyframes = new List<KeyValuePair<float, Keyframe>>();
         private readonly List<KeyValuePair<float, Keyframe>> _cutKeyframes = new List<KeyValuePair<float, Keyframe>>();
 #if FIXED_094
-        // added by Alton for autogen v0.94
         private LimitedStack<TransactionData> _undoStack = new LimitedStack<TransactionData>(20);
         private LimitedStack<TransactionData> _redoStack = new LimitedStack<TransactionData>(20);
 #endif
+        private ObjectCtrlInfo _selectedOCI;
         private readonly Dictionary<KeyframeDisplay, float> _selectedKeyframesXOffset = new Dictionary<KeyframeDisplay, float>();
         private double _keyframeSelectionSize;
         private int _selectedKeyframeCurvePointIndex = -1;
-        private ObjectCtrlInfo _selectedOCI;
         private GuideObject _selectedGuideObject;
         private readonly AnimationCurve _copiedKeyframeCurve = new AnimationCurve();
 
         private bool _isAreaSelecting;
         private Vector2 _areaSelectFirstPoint;
-        private RectTransform _selectionArea;
+        private RectTransform _selectionArea;        
+#if FIXED_093        
+        private bool isAutoGenerating = false;
+#endif        
         #endregion
 
         #region Accessors
@@ -361,14 +366,6 @@ namespace Timeline
         }
         #endregion
 
-#if FIXED_093        
-        private const string AUTOGEN_INTERPOLABLE_FILE = "_interpolable_"; 
-        private bool isAutoGenerating = false;
-        private static bool shouldStopAutogen = false;       
-        private static bool isHS2SceneLoaded = false;       
-        private static bool isHS2PoseLoaded = false;  
-#endif
-
         internal static ConfigEntry<KeyboardShortcut> ConfigMainWindowShortcut { get; private set; }
         internal static ConfigEntry<KeyboardShortcut> ConfigPlayPauseShortcut { get; private set; }
         internal static ConfigEntry<KeyboardShortcut> ConfigKeyframeCopyShortcut { get; private set; }
@@ -377,16 +374,20 @@ namespace Timeline
         internal static ConfigEntry<Autoplay> ConfigAutoplay { get; private set; }
 
 #if FIXED_093
+        internal static bool shouldStopAutogen = false;       
+        internal static bool isHS2SceneLoaded = false;       
+        internal static bool isHS2PoseLoaded = false;  
+
         internal static ConfigEntry<KeyboardShortcut> ConfigKeyframeSelectAllShortcut { get; private set; }
         internal static ConfigEntry<KeyboardShortcut> ConfigKeyframeDeleteAllShortcut { get; private set; }
         internal static ConfigEntry<KeyboardShortcut> ConfigKeyframeMoveLeftShortcut { get; private set; }
-        internal static ConfigEntry<KeyboardShortcut> ConfigKeyframeMoveRightShortcut { get; private set; }        
+        internal static ConfigEntry<KeyboardShortcut> ConfigKeyframeMoveRightShortcut { get; private set; }       
 #endif
 
 #if FIXED_094
-        // added by Alton for autogen v0.94
         internal static ConfigEntry<KeyboardShortcut> ConfigKeyframeUndoShortcut { get; private set; }
         internal static ConfigEntry<KeyboardShortcut> ConfigKeyframeRedoShortcut { get; private set; }
+        internal static ConfigEntry<bool> ConfigKeyEnableUndoRedo { get; private set; }         
 #endif
 
 
@@ -411,16 +412,16 @@ namespace Timeline
             ConfigAutoplay = Config.Bind("Config", "Autoplay", Autoplay.Ignore);
 
 #if FIXED_093
-            ConfigKeyframeSelectAllShortcut  = Config.Bind("Config", "Select All", new KeyboardShortcut(KeyCode.A, KeyCode.LeftControl));
-            ConfigKeyframeDeleteAllShortcut  = Config.Bind("Config", "Delete All", new KeyboardShortcut(KeyCode.Delete));
-            ConfigKeyframeMoveLeftShortcut = Config.Bind("Config", "Move Keyframes <-", new KeyboardShortcut(KeyCode.LeftArrow, KeyCode.LeftAlt));
-            ConfigKeyframeMoveRightShortcut = Config.Bind("Config", "Move Keyframes ->", new KeyboardShortcut(KeyCode.RightArrow, KeyCode.LeftAlt));            
+            ConfigKeyframeSelectAllShortcut  = Config.Bind("Config", "Select Keyframes all", new KeyboardShortcut(KeyCode.A, KeyCode.LeftControl));
+            ConfigKeyframeDeleteAllShortcut  = Config.Bind("Config", "Delete Keyframes all", new KeyboardShortcut(KeyCode.Delete));
+            ConfigKeyframeMoveLeftShortcut = Config.Bind("Config", "MoveLeft Keyframes", new KeyboardShortcut(KeyCode.LeftArrow, KeyCode.LeftAlt));
+            ConfigKeyframeMoveRightShortcut = Config.Bind("Config", "MoveRight Keyframes", new KeyboardShortcut(KeyCode.RightArrow, KeyCode.LeftAlt));            
 #endif 
 
-#if FIXED_094
-            // added by Alotn for autogen v0.94
-            ConfigKeyframeUndoShortcut  = Config.Bind("Config", "Undo", new KeyboardShortcut(KeyCode.Z, KeyCode.LeftControl));
+#if FIXED_094            
+            ConfigKeyframeUndoShortcut  = Config.Bind("Config", "Undo", new KeyboardShortcut(KeyCode.U, KeyCode.LeftControl));
             ConfigKeyframeRedoShortcut  = Config.Bind("Config", "Redo", new KeyboardShortcut(KeyCode.Y, KeyCode.LeftControl));
+            ConfigKeyEnableUndoRedo = Config.Bind("Enable", "Undo/Redo v0.94", true, "If this is enabled, undo/redo activated"); 
 #endif
 
             _self = this;
@@ -490,15 +491,6 @@ namespace Timeline
                     return;
                 }   
             }
-
-            // workspace에서 활성화된 object를 _selectedOCI 로 할당
-            ObjectCtrlInfo _currentObjectCtrlInfo = GetObjectCtrlInfo();
-            if (_selectedOCI != _currentObjectCtrlInfo || _currentObjectCtrlInfo == null)
-            {
-                _selectedOCI = _currentObjectCtrlInfo;
-                UpdateInterpolablesView();
-                UpdateKeyframeWindow(false);
-            }
 #else                
             //This bullshit is obligatory because when a node is selected on an object that is not selected in the workspace, the selected object doesn't get switched.
             GuideObject guideObject = _selectedGuideObjects.FirstOrDefault();
@@ -539,7 +531,7 @@ namespace Timeline
 
             _totalActiveExpressions = _allExpressions.Count(e => e.enabled && e.gameObject.activeInHierarchy);
             _currentExpressionIndex = 0;
-        
+
             if (_toDelete.Count != 0)
             {
                 try
@@ -578,9 +570,9 @@ namespace Timeline
                     MoveRightKeyframes();                       
 #endif
 #if FIXED_094
-                else if (ConfigKeyframeUndoShortcut.Value.IsDown())                 
+                else if (ConfigKeyframeUndoShortcut.Value.IsDown())
                     UndoPopupAction(0);
-                else if (ConfigKeyframeRedoShortcut.Value.IsDown()) 
+                else if (ConfigKeyframeRedoShortcut.Value.IsDown())
                     UndoPopupAction(1);                 
 #endif                     
 
@@ -3498,11 +3490,11 @@ namespace Timeline
                 UpdateKeyframeWindow(false);
                 UpdateGrid();
             }
-        }        
-#endif        
+        }
+#endif
 
 #if FIXED_094
-        public TransactionData MakeAction() {
+        private TransactionData MakeAction() {
             StringBuilder sb = new StringBuilder();
             StringWriter stringWriter = new StringWriter(sb);
             XmlTextWriter xmlWriter = new XmlTextWriter(stringWriter);
@@ -3510,7 +3502,7 @@ namespace Timeline
             List<KeyValuePair<int, ObjectCtrlInfo>> dic = new SortedDictionary<int, ObjectCtrlInfo>(Studio.Studio.Instance.dicObjectCtrl).ToList();
             xmlWriter.WriteStartElement("root");
             foreach (INode node in _interpolablesTree.tree)
-                WriteInterpolableTree(node, xmlWriter, dic, leafNode => leafNode.obj.oci == _selectedOCI);
+                WriteInterpolableTree(node, xmlWriter, dic, leafNode => (leafNode.obj.oci == _selectedOCI || leafNode.obj.useOciInHash == false));
             xmlWriter.WriteEndElement();
             xmlWriter.Flush();
             xmlWriter.Close();
@@ -3518,84 +3510,87 @@ namespace Timeline
             return new TransactionData(_selectedOCI, sb.ToString());
         } 
 
-        public void UndoPushAction() {
-            if (_undoStack.Count > 0) {
-                TransactionData transactionData = _undoStack.Peek();
-                if (transactionData.ctrlInfo != _selectedOCI) {
-                    _undoStack.Clear();                    
+        private void UndoPushAction() {          
+            if (ConfigKeyEnableUndoRedo.Value) {
+                if (_undoStack.Count > 0) {
+                    TransactionData transactionData = _undoStack.Peek();
+                    if (transactionData.ctrlInfo != _selectedOCI) {
+                        _undoStack.Clear();
+                    }
                 }
+                
+                _redoStack.Clear();
+                _undoStack.Push(MakeAction());                
             }
-            
-            _redoStack.Clear();
-            _undoStack.Push(MakeAction());
         }
 
         private void UndoPopupAction(int type)   // type 0: undo, type 1: redo
         {   
-            TransactionData transactionData = null;
+            if (ConfigKeyEnableUndoRedo.Value) {
+                TransactionData transactionData = null;
 
-            if (_selectedOCI == null)
-                return;
-
-            if (type == 0) {
-                if (_undoStack.Count > 0) {
-                    transactionData = _undoStack.Pop();
-                }
-            }
-            else { 
-                if (_redoStack.Count > 0) {
-                    transactionData = _redoStack.Pop();
-                }
-            }
-
-            if (transactionData != null) {
-
-                if (transactionData.ctrlInfo != _selectedOCI) {
-                    _undoStack.Push(transactionData);
+                if (_selectedOCI == null) {
                     return;
                 }
 
                 if (type == 0) {
-                    _redoStack.Push(MakeAction());
+                    if (_undoStack.Count > 0) {
+                        transactionData = _undoStack.Peek();
+                    }
                 }
                 else { 
-                    _undoStack.Push(MakeAction());
-                }
-                
-                XmlDocument doc = new XmlDocument();
-                try
-                {
-                    doc.LoadXml(transactionData.data);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("exception " + ex.Message);
-                }
-
-                List<Interpolable> deleteInterpolables = new List<Interpolable>();
-
-                foreach (KeyValuePair<int, Interpolable> pair in _interpolables) {
-                    if(pair.Value.oci == _selectedOCI) {
-                        deleteInterpolables.Add(pair.Value);
+                    if (_redoStack.Count > 0) {
+                        transactionData = _redoStack.Peek();
                     }
                 }
 
-                foreach (Interpolable interpolable in deleteInterpolables) {
-                    RemoveInterpolableUndo(interpolable);
-                }
+                if (transactionData != null) {
+
+                    if (transactionData.ctrlInfo != _selectedOCI) {
+                        return;
+                    }
+
+                    XmlDocument doc = new XmlDocument();
+                    try
+                    {
+                        doc.LoadXml(transactionData.data);
+               
+                        // 이전 interpolable 정보 clean
+                        _selectedInterpolables.Clear();
+                        _selectedKeyframes.Clear();
+
+                        List<Interpolable> temp_oci_Interpolables = new List<Interpolable>();
+                        foreach (KeyValuePair<int, Interpolable> pair in _interpolables) {
+                            if(pair.Value.oci == _selectedOCI) {
+                                temp_oci_Interpolables.Add(pair.Value);
+                            }
+                        }   
+
+                        foreach (Interpolable interpolable in temp_oci_Interpolables) {
+                            RemoveInterpolableUndo(interpolable);
+                        }                        
+
+                        // 신규 interpolable 정보 update
+                        ReadInterpolableTree(doc.FirstChild, new SortedDictionary<int, ObjectCtrlInfo>(Studio.Studio.Instance.dicObjectCtrl).ToList(), _selectedOCI);
+
+                        if (type == 0) {     
+                            _redoStack.Push(_undoStack.Pop());
+                        }
+                        else { 
+                            _undoStack.Push(_redoStack.Pop());
+                        }                    
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("exception " + ex.Message);
+                    }
                 
-                _selectedInterpolables.Clear();
-                _selectedKeyframes.Clear();
-
-                List<KeyValuePair<int, ObjectCtrlInfo>> dic = new SortedDictionary<int, ObjectCtrlInfo>(Studio.Studio.Instance.dicObjectCtrl).ToList();
-
-                ReadInterpolableTree(doc.FirstChild, dic, _selectedOCI);
-
-                UpdateKeyframeWindow(false);
-                UpdateInterpolablesView();
+                    UpdateKeyframeWindow(false);
+                    UpdateInterpolablesView();
+                } 
             }
         }
-#endif        
+#endif
         private List<KeyValuePair<float, Keyframe>>  AddKeyframes(List<Interpolable> interpolables, float time)
         {
             Keyframe keyframe;
@@ -3708,7 +3703,7 @@ namespace Timeline
         }
 
         private void OnGridTopMouse(PointerEventData eventData)
-        {            
+        {
             if (eventData.button == PointerEventData.InputButton.Left && RectTransformUtility.ScreenPointToLocalPointInRectangle(_gridTop, eventData.position, eventData.pressEventCamera, out Vector2 localPoint))
             {
                 float time = 10f * localPoint.x / (_baseGridWidth * _zoomLevel);
@@ -4930,7 +4925,7 @@ namespace Timeline
             }
         }
 
-#if FIXED_094
+#if FIXED_095
         private void WriteInterpolableTreeJson(INode interpolableNode, Utf8JsonWriter writer, List<KeyValuePair<int, ObjectCtrlInfo>> dic, Func<LeafNode<Interpolable>, bool> predicate = null)
         {
             switch (interpolableNode.type)
@@ -5093,7 +5088,7 @@ namespace Timeline
         }
 
 
-#if FIXED_094
+#if FIXED_095
         private void WriteInterpolableJson(Interpolable interpolable, Utf8JsonWriter writer, List<KeyValuePair<int, ObjectCtrlInfo>> dic)
         {
             if (interpolable.keyframes.Count == 0)
@@ -5495,24 +5490,62 @@ namespace Timeline
             }
 
             private static void Prefix(object __instance)
-{
-    ObjectCtrlInfo oci = __instance as ObjectCtrlInfo;
-    if (oci != null)
-        _self.RemoveInterpolables(_self._interpolables.Where(i => i.Value.oci == oci).Select(i => i.Value).ToList());
-}
+            {
+                ObjectCtrlInfo oci = __instance as ObjectCtrlInfo;
+                if (oci != null)
+                    _self.RemoveInterpolables(_self._interpolables.Where(i => i.Value.oci == oci).Select(i => i.Value).ToList());
+            }
         }
 
+#if FIXED_094
+        [HarmonyPatch(typeof(WorkspaceCtrl), nameof(WorkspaceCtrl.OnSelectSingle), typeof(TreeNodeObject))]
+        internal static class WorkspaceCtrl_OnSelectSingle_Patches
+        {
+            private static bool Prefix(object __instance, TreeNodeObject _node)
+            {
+                ObjectCtrlInfo objectCtrlInfo = null;
+                if (Singleton<Studio.Studio>.Instance.dicInfo.TryGetValue(_node, out objectCtrlInfo))
+                {
+                    _self._selectedOCI = objectCtrlInfo;  
+                    _self.UpdateInterpolablesView();
+                    _self.UpdateKeyframeWindow(false);                               
+                }
+
+                return true;
+            }
+        }
+
+        [HarmonyPatch(typeof(WorkspaceCtrl), nameof(WorkspaceCtrl.OnSelectMultiple))]
+        private static class WorkspaceCtrl_OnSelectMultiple_Patches
+        {
+            private static bool Prefix(object __instance) {
+
+                TreeNodeObject _node = Singleton<Studio.Studio>.Instance.treeNodeCtrl.selectNodes[0];
+                ObjectCtrlInfo objectCtrlInfo = null;
+
+                if (Singleton<Studio.Studio>.Instance.dicInfo.TryGetValue(_node, out objectCtrlInfo))
+                {
+                    _self._selectedOCI = objectCtrlInfo;  
+                    _self.UpdateInterpolablesView();
+                    _self.UpdateKeyframeWindow(false);                              
+                }                
+
+                return true;
+            }
+        }        
+#endif     
+
         [HarmonyPatch(typeof(WorkspaceCtrl), nameof(WorkspaceCtrl.OnClickDelete))]
-internal static class WorkspaceCtrl_OnClickDelete_Patches
-{
-    private static bool Prefix()
-    {
-        // Prevent people from deleting objects in studio workspace by accident while timeline window is in focus
-        if (Input.GetKey(KeyCode.Delete))
-            return !_self._ui.gameObject.activeSelf;
-        return true;
-    }
-}
+        internal static class WorkspaceCtrl_OnClickDelete_Patches
+        {
+            private static bool Prefix()
+            {
+                // Prevent people from deleting objects in studio workspace by accident while timeline window is in focus
+                if (Input.GetKey(KeyCode.Delete))
+                    return !_self._ui.gameObject.activeSelf;
+                return true;
+            }
+        }
 
 #if KOIKATSU
         [HarmonyPatch(typeof(ShortcutKeyCtrl), "Update")]
