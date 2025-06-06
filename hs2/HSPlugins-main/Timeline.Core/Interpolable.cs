@@ -16,7 +16,6 @@ namespace Timeline
         public bool enabled = true;
         public Color color = Color.white;
         public string alias = "";
-
         public Interpolable(ObjectCtrlInfo oci, InterpolableModel interpolableModel) : base(interpolableModel.GetParameter(oci), interpolableModel)
         {
             if (useOciInHash)
@@ -37,7 +36,7 @@ namespace Timeline
             unchecked
             {
                 int hash = base.GetHashCode();
-                _hashCode = hash * 31 + (this.oci != null ? this.oci.GetHashCode() : 0);
+                _hashCode = hash * 31 + (this.oci != null ? this.oci.GetHashCode() : 0); 
             }
         }
 

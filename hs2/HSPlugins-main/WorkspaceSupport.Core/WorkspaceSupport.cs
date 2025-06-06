@@ -62,7 +62,7 @@ namespace WorkspaceSupport
     {
         #region Constants
         public const string Name = "WorkspaceSupport";
-        public const string Version = "1.0.0";
+        public const string Version = "0.9.0";
         public const string GUID = "com.alton.illusionplugins.workspace";
         internal const string _ownerId = "WorkspaceSupport";
 #if KOIKATSU || AISHOUJO || HONEYSELECT2
@@ -78,19 +78,6 @@ namespace WorkspaceSupport
 #endif
 
         #region Private Types
-        // private class HeaderDisplay
-        // {
-        //     public GameObject gameObject;
-        //     public LayoutElement layoutElement;
-        //     public RectTransform container;
-        //     public Text name;
-        //     public InputField inputField;
-
-        //     public bool expanded = true;
-        //     public GroupNode<InterpolableGroup> group;
-        // }
-
-
         #endregion
 
         #region Private Variables
@@ -174,9 +161,9 @@ namespace WorkspaceSupport
             boneDict["Part: Left Heel"] = "N_Foot_L";
             boneDict["Part: Thigh (R)"] = "N_Leg_R";
             boneDict["Part: Knee (R)"] = "N_Knee_R";
-            boneDict["Part: Lower Belly ①"] = "N_Dan";
-            boneDict["Part: Lower Belly ②"] = "N_Dan";
-            boneDict["Part: Lower Belly ③"] = "N_Dan";
+            boneDict["Part: Lower Belly ①"] = "N_Waist_f";
+            boneDict["Part: Lower Belly ②"] = "N_Waist_L";
+            boneDict["Part: Lower Belly ③"] = "N_Waist_R";
         }
 
 #if HONEYSELECT
@@ -255,21 +242,24 @@ namespace WorkspaceSupport
         {
             private static bool Prefix(object __instance)
             {
-                if (Singleton<Studio.Studio>.Instance.treeNodeCtrl.selectNodes.Length > 1)
+                ObjectCtrlInfo objectCtrlInfo = null;
+                string value;
+
+                foreach (TreeNodeObject node in Singleton<Studio.Studio>.Instance.treeNodeCtrl.selectNodes)
                 {
-                    ObjectCtrlInfo objectCtrlInfo = null;
-
-                    TreeNodeObject _base_node = Singleton<Studio.Studio>.Instance.treeNodeCtrl.selectNodes[0];
-                    TreeNodeObject _root = FindRoot(_base_node);
-
-                    if (Singleton<Studio.Studio>.Instance.dicInfo.TryGetValue(_root, out objectCtrlInfo))
+                    // body part 인 경우라면
+                    if (boneDict.TryGetValue(node.m_TextName.text, out value))
                     {
-                        string value;
-                        if (boneDict.TryGetValue(_base_node.m_TextName.text, out value))
+                        node.enableCopy = true;
+                    }
+                    else
+                    {
+                        // objectctrl 대상 처리
+                        if (Singleton<Studio.Studio>.Instance.dicInfo.TryGetValue(node, out objectCtrlInfo))
                         {
-                            _base_node.enableCopy = true;
+                            node.enableCopy = true;
                         }
-                    } 
+                    }
                 }
 
                 return true;
@@ -285,36 +275,65 @@ namespace WorkspaceSupport
                 string value;
 
                 TreeNodeObject _base_node = Singleton<Studio.Studio>.Instance.treeNodeCtrl.selectNodes[0];
-                TreeNodeObject _root = FindRoot(_base_node);
+                Vector3 base_position = Vector3.zero;
 
-                if (Singleton<Studio.Studio>.Instance.dicInfo.TryGetValue(_root, out objectCtrlInfo))
+                // body part 인 경우라면
+                if (boneDict.TryGetValue(_base_node.m_TextName.text, out value))
                 {
-                    OCIChar _baseOciChar = objectCtrlInfo as OCIChar;
-                    ChaControl charConctrol = _baseOciChar.charInfo;
-
-                    //charConctrol.cmpBoneBody.targetAccessory.acs_Neck 
-
-                    // this.targetAccessory.acs_Hair_pony = findAssist.GetTransformFromName("N_Hair_pony");
-
-                    if (boneDict.TryGetValue(_base_node.m_TextName.text, out value))
+                    // body poart 대상 char 서칭
+                    TreeNodeObject _root = FindRoot(_base_node);
+                    if (Singleton<Studio.Studio>.Instance.dicInfo.TryGetValue(_root, out objectCtrlInfo))
                     {
-                        string _value = value;
+                        OCIChar _baseOciChar = objectCtrlInfo as OCIChar;
+                        ChaControl baseCharConctrol = _baseOciChar.charInfo;
+
                         FindAssist findAssist = new FindAssist();
-                        findAssist.Initialize(charConctrol.gameObject.transform);
-                        Transform bone = findAssist.GetTransformFromName(_value);
-
-                        foreach (TreeNodeObject node in Singleton<Studio.Studio>.Instance.treeNodeCtrl.selectNodes.Skip(0))
-                        {
-                            if (Singleton<Studio.Studio>.Instance.dicInfo.TryGetValue(node, out objectCtrlInfo))
-                            {
-                                objectCtrlInfo.guideObject.transformTarget.position = bone.position;
-                            }
-                        }
-
-                        Singleton<Studio.Studio>.Instance.treeNodeCtrl.RemoveNode();
+                        findAssist.Initialize(baseCharConctrol.gameObject.transform);
+                        base_position = findAssist.GetTransformFromName((string)value).position;
                     }
                 }
-            }
+                else
+                {
+                    // objectctrl 대상 처리
+                    if (Singleton<Studio.Studio>.Instance.dicInfo.TryGetValue(_base_node, out objectCtrlInfo))
+                    {
+                        base_position = objectCtrlInfo.guideObject.transformTarget.position;
+                    }
+                }
+                
+                foreach (TreeNodeObject node in Singleton<Studio.Studio>.Instance.treeNodeCtrl.selectNodes.Skip(0))
+                {
+                    // body part 인 경우라면
+                    if (boneDict.TryGetValue(node.m_TextName.text, out value))
+                    {
+                        // body poart 대상 char 서칭
+                        TreeNodeObject _root = FindRoot(node);
+
+                        if (Singleton<Studio.Studio>.Instance.dicInfo.TryGetValue(_root, out objectCtrlInfo))
+                        {
+                            OCIChar _targetOciChar = objectCtrlInfo as OCIChar;
+                            ChaControl targetCharConctrol = _targetOciChar.charInfo;
+
+                            FindAssist findAssist = new FindAssist();
+                            findAssist.Initialize(targetCharConctrol.gameObject.transform);
+                            Transform target_bone = findAssist.GetTransformFromName((string)value);
+
+                            target_bone.position = base_position;
+                        }
+
+                    }
+                    else
+                    {
+                        // objectctrl 대상 처리
+                        if (Singleton<Studio.Studio>.Instance.dicInfo.TryGetValue(node, out objectCtrlInfo))
+                        {
+                            objectCtrlInfo.guideObject.transformTarget.position = base_position;
+                        }
+                    }
+                }
+
+                Singleton<Studio.Studio>.Instance.treeNodeCtrl.SelectSingle(null, true);
+             }
         }
 
 #if KOIKATSU

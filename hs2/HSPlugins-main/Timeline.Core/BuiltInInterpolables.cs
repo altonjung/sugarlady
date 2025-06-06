@@ -1,7 +1,12 @@
 ﻿using Studio;
+using System;
+using System.IO;
+using System.IO.Compression;
+using System.Text;
 using System.Collections.Generic;
 using ToolBox.Extensions;
 using UnityEngine;
+
 #if AISHOUJO || HONEYSELECT2
 using AIChara;
 #elif KOIKATSU || SUNSHINE
@@ -24,6 +29,9 @@ namespace Timeline
 
         public static void Populate()
         {
+#if FIXED_095
+            Sound();
+#endif
             Global();
             EnabledDisabled();
             Animation();
@@ -38,22 +46,6 @@ namespace Timeline
             Item();
 
             Light();
-
-            //Timeline. AddInterpolableModel(new InterpolableModel(
-            //        owner: Timeline._ownerId,
-            //        id: "debug",
-            //        parameter: null,
-            //        name: "Print Debug",
-            //        interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => UnityEngine.Debug.LogError(message: "Interpolating Before " + Time.frameCount + " " + factor),
-            //        interpolateAfter: (oci, parameter, leftValue, rightValue, factor) => UnityEngine.Debug.LogError(message: "Interpolating After " + Time.frameCount + " " + factor),
-            //        isCompatibleWithTarget: (oci) => true,
-            //        getValue: (oci, parameter) => null,
-            //        readParameterFromXml: null,
-            //        writeParameterToXml: null,
-            //        readValueFromXml: null,
-            //        writeValueToXml: null,
-            //        useOciInHash: false
-            //));
         }
 
         private static void Global()
@@ -198,8 +190,27 @@ namespace Timeline
                     owner: Timeline._ownerId,
                     id: "guideObjectPos",
                     name: "Selected GuideObject Pos",
-                    interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((GuideObject)parameter).changeAmount.pos = Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor),
-                    interpolateAfter: (oci, parameter, leftValue, rightValue, factor) => ((GuideObject)parameter).changeAmount.pos = Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor),
+                    //     interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((GuideObject)parameter).changeAmount.pos = Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor),
+                    //     interpolateAfter: (oci, parameter, leftValue, rightValue, factor) => ((GuideObject)parameter).changeAmount.pos = Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor),
+                    interpolateBefore: (oci, parameter, leftValue, rightValue, factor) =>
+                    {
+                            Vector3 curPos = ((GuideObject)parameter).changeAmount.pos;
+                            Vector3 nextPos = Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor);
+
+                            if (!curPos.Equals(nextPos))
+                            {
+                                    ((GuideObject)parameter).changeAmount.pos = nextPos;
+                            }
+                    },                                    
+                    interpolateAfter: (oci, parameter, leftValue, rightValue, factor) => {
+                            Vector3 curPos = ((GuideObject)parameter).changeAmount.pos;
+                            Vector3 nextPos = Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor);
+
+                            if (!curPos.Equals(nextPos))
+                            {
+                                    ((GuideObject)parameter).changeAmount.pos = nextPos;
+                            }
+                    },             
                     isCompatibleWithTarget: oci => oci != null,
                     getValue: (oci, parameter) => ((GuideObject)parameter).changeAmount.pos,
                     readValueFromXml: (parameter, node) => node.ReadVector3("value"),
@@ -222,8 +233,27 @@ namespace Timeline
                     owner: Timeline._ownerId,
                     id: "guideObjectRot",
                     name: "Selected GuideObject Rot",
-                    interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((GuideObject)parameter).changeAmount.rot = Quaternion.SlerpUnclamped((Quaternion)leftValue, (Quaternion)rightValue, factor).eulerAngles,
-                    interpolateAfter: (oci, parameter, leftValue, rightValue, factor) => ((GuideObject)parameter).changeAmount.rot = Quaternion.SlerpUnclamped((Quaternion)leftValue, (Quaternion)rightValue, factor).eulerAngles,
+                    //     interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((GuideObject)parameter).changeAmount.rot = Quaternion.SlerpUnclamped((Quaternion)leftValue, (Quaternion)rightValue, factor).eulerAngles,
+                    //     interpolateAfter: (oci, parameter, leftValue, rightValue, factor) => ((GuideObject)parameter).changeAmount.rot = Quaternion.SlerpUnclamped((Quaternion)leftValue, (Quaternion)rightValue, factor).eulerAngles,
+                    interpolateBefore: (oci, parameter, leftValue, rightValue, factor) =>
+                    {
+                            Vector3 curRot = ((GuideObject)parameter).changeAmount.rot;
+                            Vector3 nextRot = Quaternion.SlerpUnclamped((Quaternion)leftValue, (Quaternion)rightValue, factor).eulerAngles;
+
+                            if (!curRot.Equals(nextRot))
+                            {
+                                    ((GuideObject)parameter).changeAmount.rot = nextRot;
+                            }
+                    },                                    
+                    interpolateAfter: (oci, parameter, leftValue, rightValue, factor) => {
+                            Vector3 curRot = ((GuideObject)parameter).changeAmount.rot;
+                            Vector3 nextRot = Quaternion.SlerpUnclamped((Quaternion)leftValue, (Quaternion)rightValue, factor).eulerAngles;
+
+                            if (!curRot.Equals(nextRot))
+                            {
+                                    ((GuideObject)parameter).changeAmount.rot = nextRot;
+                            }
+                    },                 
                     isCompatibleWithTarget: (oci) => oci != null,
                     getValue: (oci, parameter) => Quaternion.Euler(((GuideObject)parameter).changeAmount.rot),
                     readValueFromXml: (parameter, node) => node.ReadQuaternion("value"),
@@ -246,8 +276,27 @@ namespace Timeline
                     owner: Timeline._ownerId,
                     id: "guideObjectScale",
                     name: "Selected GuideObject Scl",
-                    interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((GuideObject)parameter).changeAmount.scale = Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor),
-                    interpolateAfter: (oci, parameter, leftValue, rightValue, factor) => ((GuideObject)parameter).changeAmount.scale = Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor),
+                    //     interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => ((GuideObject)parameter).changeAmount.scale = Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor),
+                    //     interpolateAfter: (oci, parameter, leftValue, rightValue, factor) => ((GuideObject)parameter).changeAmount.scale = Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor),
+                    interpolateBefore: (oci, parameter, leftValue, rightValue, factor) =>
+                    {
+                            Vector3 curScale = ((GuideObject)parameter).changeAmount.scale;
+                            Vector3 nextScale = Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor);
+
+                            if (!curScale.Equals(nextScale))
+                            {
+                                    ((GuideObject)parameter).changeAmount.scale = nextScale;
+                            }
+                    },                                    
+                    interpolateAfter: (oci, parameter, leftValue, rightValue, factor) => {
+                            Vector3 curScale = ((GuideObject)parameter).changeAmount.scale;
+                            Vector3 nextScale = Vector3.LerpUnclamped((Vector3)leftValue, (Vector3)rightValue, factor);
+
+                            if (!curScale.Equals(nextScale))
+                            {
+                                    ((GuideObject)parameter).changeAmount.scale = nextScale;
+                            }
+                    },  
                     isCompatibleWithTarget: (oci) => oci != null,
                     getValue: (oci, parameter) => ((GuideObject)parameter).changeAmount.scale,
                     readValueFromXml: (parameter, node) => node.ReadVector3("value"),
@@ -1293,5 +1342,191 @@ namespace Timeline
                     readValueFromXml: (parameter, node) => node.ReadFloat("value"),
                     writeValueToXml: (parameter, writer, o) => writer.WriteValue("value", (float)o)));
         }
+
+#if FIXED_095 
+        private static void Sound()
+        {
+            Timeline.AddInterpolableModel(new InterpolableModel(
+                    owner: Timeline._ownerId,
+                    id: "SoundSFXControl",
+                    parameter: null,
+                    name: "SoundSFX",
+                    interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => {
+                        
+                        AudioSource audioSource = oci.guideObject.gameObject.GetComponent<AudioSource>();
+
+                        if (audioSource == null) {
+                           audioSource = oci.guideObject.gameObject.AddComponent<AudioSource>();
+                        }
+
+                        Timeline.SoundSFX soundSFX = new Timeline.SoundSFX();
+
+                        string stringValue = leftValue?.ToString() ?? string.Empty;
+                        string fileName = stringValue.Length >= 20
+                        ? stringValue.Substring(0, 20)
+                        : stringValue.PadRight(20, ' ');
+                
+                        string volume = stringValue.Length >= 25
+                        ? stringValue.Substring(20, 5)
+                        : stringValue.Length > 20
+                                ? stringValue.Substring(20).PadRight(5, ' ')
+                                : "".PadRight(5, ' ');
+
+                        string data = stringValue.Length >= 30
+                        ? stringValue.Substring(30)
+                        : string.Empty;
+
+                        soundSFX.fileName = fileName;
+                        soundSFX.volume = volume;
+                        soundSFX.data = Decompress(data);
+
+                        AudioClip clip = ToAudioClip(System.Convert.FromBase64String(soundSFX.data), "Base64Clip");
+
+                        audioSource.clip = clip;
+                        audioSource.volume = float.Parse(soundSFX.volume);
+                        audioSource.mute = false;
+                        audioSource.playOnAwake = false;
+                        // audioSource.spatialBlend = 0.0f;
+                        audioSource.loop = false;
+                        audioSource.Play();
+                    },
+                    interpolateAfter: null,
+                    isCompatibleWithTarget: (oci) => oci != null,
+                    getParameter: oci => GuideObjectManager.Instance.selectObject,
+                    getValue: (oci, parameter) => "",
+                    readValueFromXml: (parameter, node) => node.Attributes["value"].Value,
+                    writeValueToXml: (parameter, writer, o) => writer.WriteAttributeString("value", (string)o),
+                    type: 1)
+                );
+
+                Timeline.AddInterpolableModel(new InterpolableModel(
+                    owner: Timeline._ownerId,
+                    id: "SoundBGControl",
+                    parameter: null,
+                    name: "SoundBG",
+                    interpolateBefore: (oci, parameter, leftValue, rightValue, factor) => {
+                        
+                        AudioSource audioSource = oci.guideObject.gameObject.GetComponent<AudioSource>();
+
+                        if (audioSource == null) {
+                           audioSource = oci.guideObject.gameObject.AddComponent<AudioSource>();
+                        }
+
+                        Timeline.SoundSFX soundSFX = new Timeline.SoundSFX();
+
+                        string stringValue = leftValue?.ToString() ?? string.Empty;
+                        string fileName = stringValue.Length >= 20
+                        ? stringValue.Substring(0, 20)
+                        : stringValue.PadRight(20, ' ');
+                
+                        string volume = stringValue.Length >= 25
+                        ? stringValue.Substring(20, 5)
+                        : stringValue.Length > 20
+                                ? stringValue.Substring(20).PadRight(5, ' ')
+                                : "".PadRight(5, ' ');                                
+
+                        string data = stringValue.Length >= 30
+                        ? stringValue.Substring(30)
+                        : string.Empty;                
+
+                        soundSFX.fileName = fileName;
+                        soundSFX.volume = volume;
+                        soundSFX.data = Decompress(data);
+
+                        AudioClip clip = ToAudioClip(System.Convert.FromBase64String(soundSFX.data), "Base64Clip");
+
+                        audioSource.clip = clip;
+                        audioSource.volume = float.Parse(soundSFX.volume);
+                        audioSource.mute = false;
+                        audioSource.playOnAwake = false;
+                        // audioSource.spatialBlend = 0.0f;
+                        audioSource.loop = true;
+                        audioSource.Play();
+                    },
+                    interpolateAfter: null,
+                    isCompatibleWithTarget: (oci) => oci != null,
+                    getParameter: oci => GuideObjectManager.Instance.selectObject,
+                    getValue: (oci, parameter) => "",
+                    readValueFromXml: (parameter, node) => node.Attributes["value"].Value,
+                    writeValueToXml: (parameter, writer, o) => writer.WriteAttributeString("value", (string)o),
+                    type: 1)
+                );                
+        }
+
+        public static string Decompress(string compressedText)
+        {
+                byte[] inputBytes = Convert.FromBase64String(compressedText);
+                using (var input = new MemoryStream(inputBytes))
+                using (var deflate = new DeflateStream(input, CompressionMode.Decompress))
+                using (var output = new MemoryStream())
+                {
+                        deflate.CopyTo(output);
+                        return Encoding.UTF8.GetString(output.ToArray());
+                }
+        }
+
+        public static AudioClip ToAudioClip(byte[] wavFileBytes, string clipName = "wav")
+        {
+                using (MemoryStream memStream = new MemoryStream(wavFileBytes))
+                using (BinaryReader reader = new BinaryReader(memStream))
+                {
+                // 헤더 읽기
+                reader.ReadChars(4); // "RIFF"
+                reader.ReadInt32();  // Chunk size
+                reader.ReadChars(4); // "WAVE"
+                reader.ReadChars(4); // "fmt "
+                int subChunk1Size = reader.ReadInt32();
+                ushort audioFormat = reader.ReadUInt16();
+                ushort channels = reader.ReadUInt16();
+                int sampleRate = reader.ReadInt32();
+                reader.ReadInt32(); // byteRate
+                reader.ReadInt16(); // blockAlign
+                ushort bitsPerSample = reader.ReadUInt16();
+
+                // "data" 청크 찾기
+                while (new string(reader.ReadChars(4)) != "data")
+                {
+                        int size = reader.ReadInt32();
+                        reader.BaseStream.Seek(size, SeekOrigin.Current);
+                }
+
+                int dataSize = reader.ReadInt32();
+                byte[] data = reader.ReadBytes(dataSize);
+
+                float[] samples = ConvertToFloats(data, bitsPerSample);
+                AudioClip clip = AudioClip.Create(clipName, samples.Length / channels, channels, sampleRate, false);
+                clip.SetData(samples, 0);
+                return clip;
+                }
+        }
+
+        private static float[] ConvertToFloats(byte[] data, int bitsPerSample)
+        {
+                int sampleCount = data.Length / (bitsPerSample / 8);
+                float[] samples = new float[sampleCount];
+
+                if (bitsPerSample == 16)
+                {
+                for (int i = 0; i < sampleCount; i++)
+                {
+                        short sample = BitConverter.ToInt16(data, i * 2);
+                        samples[i] = sample / 32768f;
+                }
+                }
+                else if (bitsPerSample == 8)
+                {
+                for (int i = 0; i < sampleCount; i++)
+                {
+                        samples[i] = (data[i] - 128) / 128f;
+                }
+                }
+                else
+                {
+                throw new NotSupportedException("Not Supported bitrate : " + bitsPerSample);
+                }
+
+                return samples;
+        }
+#endif
     }
 }
