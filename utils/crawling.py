@@ -11,7 +11,7 @@ parser.add_argument('--type', type=str, default="", help='crawling type')
 args = parser.parse_args()
 
 base_url = "https://sideload.betterrepack.com/download/AISHS2/Sideloader%20Modpack/"
-json_map_path = "plugin_knowledges.json"
+json_map_path = "etc_knowledges.json"
 
 if args.type == "map":
     base_url = "https://sideload.betterrepack.com/download/AISHS2/Sideloader%20Modpack%20-%20Maps/"
@@ -22,7 +22,7 @@ knowledges = []
 def get_page(url, wait_time):
     # request url
     time.sleep(wait_time)
-    response = requests.get(url)
+    response = requests.get(url + "/" + "?C=M;O=D")
     soup = BeautifulSoup(response.text, 'html.parser')
 
     table = soup.find('table', id='indexlist')

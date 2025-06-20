@@ -1,5 +1,10 @@
 alton.jung@gmail.com / GGjjy123@@
 
+
+# video export 시 png 이미지 출력
+
+
+
 C91927
 
 # 작업 일지

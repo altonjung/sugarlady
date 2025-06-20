@@ -7,7 +7,7 @@ namespace Timeline
     public delegate void InterpolableDelegate(ObjectCtrlInfo oci, object parameter, object leftValue, object rightValue, float factor);
     public class InterpolableModel
     {
-        private readonly int _hashCode;
+        public readonly int _hashCode;
 
         public readonly string owner;
         public readonly string id;
@@ -31,8 +31,8 @@ namespace Timeline
         public readonly bool canInterpolateBefore;
         public readonly bool canInterpolateAfter;
 
-#if FIXED_095
-        public readonly int type;  // 0: before, after, 1: exact match
+#if FIXED_095 || FIXED_0951
+        public bool instantAction;
 #endif
 
         internal InterpolableModel(string owner,
@@ -52,7 +52,7 @@ namespace Timeline
                                    bool useOciInHash = true,
                                    Func<string, ObjectCtrlInfo, object, string> getFinalName = null,
                                    Func<ObjectCtrlInfo, object, bool> shouldShow = null,
-                                   int type = 0
+                                   bool instantAction = false
                                    )
         {
             this.owner = owner;
@@ -74,8 +74,8 @@ namespace Timeline
             canInterpolateAfter = _interpolateAfter != null;
             _getFinalName = getFinalName;
             _shouldShow = shouldShow;
-#if FIXED_095
-            this.type = type;
+#if FIXED_095 || FIXED_0951
+            this.instantAction = instantAction;
 #endif
             unchecked
             {
@@ -102,8 +102,8 @@ namespace Timeline
                                  bool useOciInHash = true,
                                  Func<string, ObjectCtrlInfo, object, string> getFinalName = null,
                                  Func<ObjectCtrlInfo, object, bool> shouldShow = null,
-                                 int type = 0) :
-                this(owner, id, parameter, name, interpolateBefore, interpolateAfter, isCompatibleWithTarget, getValue, readValueFromXml, writeValueToXml, null, readParameterFromXml, writeParameterToXml, checkIntegrity, useOciInHash, getFinalName, shouldShow, type)
+                                 bool instantAction = false) :
+                this(owner, id, parameter, name, interpolateBefore, interpolateAfter, isCompatibleWithTarget, getValue, readValueFromXml, writeValueToXml, null, readParameterFromXml, writeParameterToXml, checkIntegrity, useOciInHash, getFinalName, shouldShow, instantAction)
         { }
 
         public InterpolableModel(string owner,
@@ -122,13 +122,13 @@ namespace Timeline
                                  bool useOciInHash = true,
                                  Func<string, ObjectCtrlInfo, object, string> getFinalName = null,
                                  Func<ObjectCtrlInfo, object, bool> shouldShow = null,
-                                 int type = 0) :
-                this(owner, id, null, name, interpolateBefore, interpolateAfter, isCompatibleWithTarget, getValue, readValueFromXml, writeValueToXml, getParameter, readParameterFromXml, writeParameterToXml, checkIntegrity, useOciInHash, getFinalName, shouldShow, type)
+                                 bool instantAction = false) :
+                this(owner, id, null, name, interpolateBefore, interpolateAfter, isCompatibleWithTarget, getValue, readValueFromXml, writeValueToXml, getParameter, readParameterFromXml, writeParameterToXml, checkIntegrity, useOciInHash, getFinalName, shouldShow, instantAction)
         { }
 
-        protected InterpolableModel(InterpolableModel other) : this(other.owner, other.id, other.parameter, other.name, other._interpolateBefore, other._interpolateAfter, other._isCompatibleWithTarget, other._getValue, other._readValueFromXml, other._writeValueToXml, other._getParameter, other.readParameterFromXml, other.writeParameterToXml, other._checkIntegrity, other.useOciInHash, other._getFinalName, other._shouldShow, other.type) { }
+        protected InterpolableModel(InterpolableModel other) : this(other.owner, other.id, other.parameter, other.name, other._interpolateBefore, other._interpolateAfter, other._isCompatibleWithTarget, other._getValue, other._readValueFromXml, other._writeValueToXml, other._getParameter, other.readParameterFromXml, other.writeParameterToXml, other._checkIntegrity, other.useOciInHash, other._getFinalName, other._shouldShow, other.instantAction) { }
 
-        protected InterpolableModel(object parameter, InterpolableModel other) : this(other.owner, other.id, parameter, other.name, other._interpolateBefore, other._interpolateAfter, other._isCompatibleWithTarget, other._getValue, other._readValueFromXml, other._writeValueToXml, other._getParameter, other.readParameterFromXml, other.writeParameterToXml, other._checkIntegrity, other.useOciInHash, other._getFinalName, other._shouldShow, other.type) { }
+        protected InterpolableModel(object parameter, InterpolableModel other) : this(other.owner, other.id, parameter, other.name, other._interpolateBefore, other._interpolateAfter, other._isCompatibleWithTarget, other._getValue, other._readValueFromXml, other._writeValueToXml, other._getParameter, other.readParameterFromXml, other.writeParameterToXml, other._checkIntegrity, other.useOciInHash, other._getFinalName, other._shouldShow, other.instantAction) { }
 
         internal object GetParameter(ObjectCtrlInfo oci)
         {

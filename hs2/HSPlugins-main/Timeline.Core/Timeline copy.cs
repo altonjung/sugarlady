@@ -995,7 +995,6 @@ namespace Timeline
                 if (model.IsCompatibleWithTarget(_selectedOCI) == false)
                     return null;
                 Interpolable interpolable = new Interpolable(_selectedOCI, model);
-
                 if (_interpolables.TryGetValue(interpolable.GetHashCode(), out actualInterpolable) == false)
                 {
                     _interpolables.Add(interpolable.GetHashCode(), interpolable);
@@ -1413,7 +1412,7 @@ namespace Timeline
                 // if (interpolable.enabled == false)
                 //     return;
 
-                if(interpolable.instantAction){
+                if(interpolable.type > 0){
 
                     AudioSource audioSource = interpolable.oci.guideObject.gameObject.GetComponent<AudioSource>();
 
@@ -1484,7 +1483,7 @@ namespace Timeline
                     return;
                 }
 
-                if (interpolable.instantAction)
+                if (interpolable.type > 0)
                 {
                     foreach (KeyValuePair<float, Keyframe> keyframePair in interpolable.keyframes)
                     {
@@ -1514,7 +1513,7 @@ namespace Timeline
                 if (interpolable.enabled == false)
                 {
 #if FIXED_095 || FIXED_0951
-                    if (interpolable.instantAction) {
+                    if (interpolable.type > 0) {
                         AudioSource audioSource = interpolable.oci.guideObject.gameObject.GetComponent<AudioSource>();
 
                         if (audioSource != null) {
@@ -1545,13 +1544,8 @@ namespace Timeline
                         return;
                 }
 #if FIXED_095 || FIXED_0951
-                if (interpolable.instantAction)
+                if (interpolable.type == 0)
                 {
-                    AudioSource audioSource = interpolable.oci.guideObject.gameObject.GetComponent<AudioSource>();
-                    if (audioSource != null) {
-                        audioSource.mute = false;
-                    }
-                } else {                                       
                     foreach (KeyValuePair<float, Keyframe> keyframePair in interpolable.keyframes)
                     {
                         if (keyframePair.Key <= _playbackTime)
@@ -1561,7 +1555,13 @@ namespace Timeline
                             right = keyframePair;
                             break;
                         }
-                    }                    
+                    }
+                } else {                                       
+                        AudioSource audioSource = interpolable.oci.guideObject.gameObject.GetComponent<AudioSource>();
+                        if (audioSource != null) {
+                            audioSource.mute = false;
+                        }
+                    
                 }
 #else
                 foreach (KeyValuePair<float, Keyframe> keyframePair in interpolable.keyframes)
@@ -3024,7 +3024,7 @@ namespace Timeline
                                 pointerEnter.onPointerEnter = (e) =>
                                 {
 #if FIXED_095
-                                    if (display.keyframe.parent.instantAction == false)
+                                    if (display.keyframe.parent.type == 0)
                                     {
                                         _tooltip.transform.parent.gameObject.SetActive(true);
                                         float t = display.keyframe.parent.keyframes.First(k => k.Value == display.keyframe).Key;
@@ -3369,8 +3369,7 @@ namespace Timeline
                         }
                         if (model != null)
                         {
-                            Interpolable interpolable;                           
-
+                            Interpolable interpolable;
                             if (model is Interpolable)
                                 interpolable = (Interpolable)model;
                             else
@@ -3379,15 +3378,15 @@ namespace Timeline
                             if (interpolable != null)
                             {
 #if FIXED_095 || FIXED_0951
-                                if (interpolable.instantAction) {
-                                    _soundInterpolable = new KeyValuePair<float, Interpolable>(time, interpolable); 
-                                    ActiveFileExplorerPanel();                                    
-                                } else {
+                                if (interpolable.type == 0) {
 #if FIXED_094
                                     UndoPushAction();
 #endif
                                     AddKeyframe(interpolable, time);
                                     UpdateGrid();
+                                } else {
+                                    _soundInterpolable = new KeyValuePair<float, Interpolable>(time, interpolable); 
+                                    ActiveFileExplorerPanel();
                                 }
 #else
 
@@ -3921,7 +3920,7 @@ namespace Timeline
 #endif
 
 #if FIXED_095
-        private KeyValuePair<float, Keyframe> AddSoundToKeyframe(float time, Interpolable interpolable, SoundSFX soundSFX)
+        private KeyValuePair<float, Keyframe> AddSoundToKeyframe(Interpolable interpolable, float time, SoundSFX soundSFX)
         {
             Keyframe keyframe;
             KeyValuePair<float, Keyframe> keyValuePair = new KeyValuePair<float, Keyframe>(0f, null);
@@ -3966,14 +3965,12 @@ namespace Timeline
         }
 
 #elif FIXED_0951
-        private KeyValuePair<float, Keyframe> AddSoundToKeyframe(float time, Interpolable interpolable, SoundSFX soundSFX)
+        private KeyValuePair<float, Keyframe> AddSoundToKeyframe(Interpolable interpolable, float time, SoundSFX soundSFX)
         {
             Keyframe keyframe;
             KeyValuePair<float, Keyframe> keyValuePair = new KeyValuePair<float, Keyframe>(0f, null);
             try
             {
-                UnityEngine.Debug.Log($"timeline> add interpolable {interpolable._hashCode}");
-
                 KeyValuePair<float, Keyframe> pair = interpolable.keyframes.LastOrDefault(k => k.Key < time);
                 if (pair.Value != null)
                     keyframe = new Keyframe(SerializedSoundSFX(soundSFX), interpolable, new AnimationCurve(pair.Value.curve.keys));
@@ -4258,7 +4255,7 @@ namespace Timeline
                         soundSFX.data = Compress(File.ReadAllBytes(path));
 
                         // 바이트 배열을 Base64 문자열로 변환
-                        AddSoundToKeyframe(_soundInterpolable.Key, _soundInterpolable.Value, soundSFX);
+                        AddSoundToKeyframe(_soundInterpolable.Value, _soundInterpolable.Key, soundSFX);
                         UpdateGrid();
 #elif FIXED_0951
                         string soundFileName = _uuid + "_" + _singleFileNameField.text;
@@ -4271,7 +4268,7 @@ namespace Timeline
                         soundSFX.fileName = soundFileName;
                         soundSFX.volume = 1.0f;
 
-                        AddSoundToKeyframe(_soundInterpolable.Key, _soundInterpolable.Value, soundSFX);
+                        AddSoundToKeyframe(_soundInterpolable.Value, _soundInterpolable.Key, soundSFX);
                         UpdateGrid();
 #endif
                     }
@@ -4924,7 +4921,7 @@ namespace Timeline
                     pair.Value.parent.keyframes.Remove(pair.Key);
 
 #if FIXED_095 || FIXED_0951
-                    if (pair.Value.parent.instantAction) {
+                    if (pair.Value.parent.type > 0) {
                         AudioSource audioSource = pair.Value.parent.oci.guideObject.gameObject.GetComponent<AudioSource>();
 
                         if (audioSource != null) {
@@ -5050,18 +5047,18 @@ namespace Timeline
                 }
             }
 #if FIXED_095
-            if (_selectedKeyframes[0].Value.parent.instantAction)
+            if (_selectedKeyframes[0].Value.parent.type == 0)
+            {
+                _keyframeValueText.text = v != null ? v.ToString() : "null";
+            }
+            else
             {
                 if(v != null) {
                     string stringValue = v.ToString();
                     _keyframeValueText.text = stringValue.Length >= 20
                     ? stringValue.Substring(0, 20)
                     : stringValue.PadRight(20, ' ');
-                }
-            }
-            else
-            {
-                _keyframeValueText.text = v != null ? v.ToString() : "null";                                
+                }                
             }
 #else
             _keyframeValueText.text = v != null ? v.ToString() : "null";
@@ -5580,23 +5577,21 @@ namespace Timeline
                     string id = interpolableNode.Attributes["id"].Value;
                     InterpolableModel model = _interpolableModelsList.Find(i => i.owner == ownerId && i.id == id);
                     if (model == null /*|| model.isCompatibleWithTarget(oci) == false*/) //todo Might need to get this back on in the future, depending on how things end up going; add logging for discarded entries?
-                        return;                 
+                        return;
+#if FIXED_095 || FIXED_0951
+                    if (model.id == "SoundSFXControl") {
+                        model.type = 1;
+                    } else if (model.id == "SoundBGControl") {
+                        model.type = 2;
+                    } else {
+                        model.type = 0;
+                    }
+
+#endif                    
                     if (model.readParameterFromXml != null)
                         interpolable = new Interpolable(oci, model.readParameterFromXml(oci, interpolableNode), model);
                     else
                         interpolable = new Interpolable(oci, model);
-
-#if FIXED_095 || FIXED_0951
-                    if (model.id == "SoundSFXControl") {
-                        interpolable.instantAction = true;
-                        UnityEngine.Debug.Log($"timeline>r read interpolable {interpolable._hashCode}, {interpolable.id}");
-                    } else if (model.id == "SoundBGControl") {
-                        interpolable.instantAction = true;
-                        UnityEngine.Debug.Log($"timeline> read interpolable {interpolable._hashCode}, {interpolable.id}");
-                    } else {
-                        interpolable.instantAction = false;
-                    }
-#endif
 
                     interpolable.enabled = interpolableNode.Attributes["enabled"] == null || XmlConvert.ToBoolean(interpolableNode.Attributes["enabled"].Value);
 
